@@ -40,4 +40,32 @@ private:
             i = (i - 1) / 2;
         }
     }
-    
+
+public:
+    explicit ColaPrioridad(int cap = 16) : capacidad(cap), tamano(0) {
+        heap = new T[capacidad];
+    }
+
+    ~ColaPrioridad() {
+        delete[] heap;
+    }
+
+    void insertar(const T& elemento) {
+        if (tamano == capacidad) redimensionar();
+        heap[tamano] = elemento;
+        flotar(tamano);
+        tamano++;
+    }
+
+    T extraerMaximo() {
+        if (tamano == 0) throw std::underflow_error("Heap vacio");
+        T maximo = heap[0];
+        heap[0] = heap[tamano - 1];
+        tamano--;
+        hundir(0);
+        return maximo;
+    }
+
+    bool estaVacia() const { return tamano == 0; }
+    int obtenerTamano() const { return tamano; }
+};

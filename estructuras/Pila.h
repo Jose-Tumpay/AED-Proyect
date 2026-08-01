@@ -12,4 +12,36 @@ private:
 
     Nodo* topeNodo;
     int tamano;
-    
+
+public:
+    Pila() : topeNodo(nullptr), tamano(0) {}
+
+    ~Pila() {
+        while (!estaVacia()) desapilar();
+    }
+
+    void apilar(const T& dato) {
+        Nodo* nuevo = new Nodo(dato);
+        nuevo->siguiente = topeNodo;
+        topeNodo = nuevo;
+        tamano++;
+    }
+
+    T desapilar() {
+        if (estaVacia()) throw std::underflow_error("Pila vacia");
+        Nodo* temp = topeNodo;
+        T dato = temp->dato;
+        topeNodo = topeNodo->siguiente;
+        delete temp;
+        tamano--;
+        return dato;
+    }
+
+    T tope() const {
+        if (estaVacia()) throw std::underflow_error("Pila vacia");
+        return topeNodo->dato;
+    }
+
+    bool estaVacia() const { return tamano == 0; }
+    int obtenerTamano() const { return tamano; }
+};

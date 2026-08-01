@@ -30,4 +30,50 @@ private:
         }
         return hash % capacidad;
     }
-    
+
+public:
+    explicit TablaHash(int cap = 10007) : capacidad(cap), tamano(0) {
+        tabla = new Lista<Par>[capacidad];
+    }
+
+    ~TablaHash() {
+        delete[] tabla;
+    }
+
+    void insertar(const K& clave, const V& valor) {
+        int idx = funcionHash(clave);
+        for (Par& p : tabla[idx]) {
+            if (p.clave == clave) {
+                p.valor = valor;
+                return;
+            }
+        }
+        tabla[idx].agregarFinal(Par(clave, valor));
+        tamano++;
+    }
+
+    V* buscar(const K& clave) {
+        int idx = funcionHash(clave);
+        for (Par& p : tabla[idx]) {
+            if (p.clave == clave) {
+                return &p.valor;
+            }
+        }
+        return nullptr;
+    }
+
+    bool eliminar(const K& clave) {
+        int idx = funcionHash(clave);
+        V* val = buscar(clave);
+        if (val) {
+            Par temp(clave, *val);
+            if (tabla[idx].eliminar(temp)) {
+                tamano--;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    int obtenerTamano() const { return tamano; }
+};
