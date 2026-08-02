@@ -148,6 +148,24 @@ Lista<Publicacion> RedSocial::obtenerPublicacionesDeUsuario(int idUsuario) {
     return resultado;
 }
 
+Lista<Publicacion> RedSocial::obtenerPublicacionesConMasReacciones(int topK) {
+    ColaPrioridad<Publicacion> maxHeap;
+
+    for (auto& pub : publicaciones) {
+        maxHeap.insertar(pub);
+    }
+
+    Lista<Publicacion> topPublicaciones;
+    int contador = 0;
+
+    while (!maxHeap.estaVacia() && contador < topK) {
+        topPublicaciones.agregarFinal(maxHeap.extraerMaximo());
+        contador++;
+    }
+
+    return topPublicaciones;
+}
+
 bool RedSocial::cargarGrafoSNAP(const char* rutaArchivo) {
     FILE* f = fopen(rutaArchivo, "r");
     if (!f) {

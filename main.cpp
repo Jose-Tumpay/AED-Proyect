@@ -88,11 +88,6 @@ static void mostrarMenu(const RedSocial& red) {
     printf("==========================================================\n");
 }
 
-/* @complejidad O(1) */
-static void pendiente(int opcion) {
-    printf("  [opcion %d todavia no conectada]\n", opcion);
-}
-
 /* @complejidad O(1): una insercion en la tabla hash + un vertice en el grafo */
 static void opcionRegistrarUsuario(RedSocial& red) {
     int id;
@@ -296,6 +291,24 @@ static void opcionUsuariosMasActivos(RedSocial& red) {
     }
 }
 
+/* @complejidad O(n log n): un heap con todas las publicaciones */
+static void opcionPublicacionesMasReacciones(RedSocial& red) {
+    int topK;
+    if (!leerEntero("  Cuantas publicaciones mostrar: ", topK)) return;
+
+    Lista<Publicacion> top = red.obtenerPublicacionesConMasReacciones(topK);
+    if (top.estaVacia()) {
+        printf("  No hay publicaciones registradas.\n");
+        return;
+    }
+    printf("  Top %d publicaciones por likes:\n", top.obtenerTamano());
+    for (int i = 0; i < top.obtenerTamano(); i++) {
+        Publicacion& p = top.obtener(i);
+        printf("    %d) ID %-8s autor %-8s likes: %d\n",
+               i + 1, p.getPostId(), p.getUserId(), p.getLikes());
+    }
+}
+
 /*
  * Bateria de escalado: mide carga, insercion, busqueda, BFS, sugerencias
  * y top-K para una serie creciente de N y vuelca el resultado a CSV. Se usa
@@ -377,9 +390,7 @@ int main(int argc, char** argv) {
             case 10: opcionSugerenciasAmistad(red); break;
             case 11: opcionPublicacionesDeUsuario(red); break;
             case 12: opcionUsuariosMasActivos(red); break;
-            case 13:
-                pendiente(opcion);
-                break;
+            case 13: opcionPublicacionesMasReacciones(red); break;
             default:
                 printf("  Opcion fuera de rango.\n");
                 break;
