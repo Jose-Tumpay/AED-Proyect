@@ -1,4 +1,4 @@
-#include "Usuario.h"
+#include "red/usuario.h"
 
 // Copia para lso strings
 void Usuario::copiarTexto(char* destino, const char* origen, int tamMax) {

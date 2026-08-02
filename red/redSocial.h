@@ -1,8 +1,8 @@
 #pragma once
-#include "../estructuras/TablaHash.h"
-#include "../estructuras/Grafo.h"
-#include "../estructuras/ColaPrioridad.h"
-#include "../estructuras/Lista.h"
+#include "estructuras/tablaHash.h"
+#include "estructuras/grafo.h"
+#include "estructuras/colaPrioridad.h"
+#include "estructuras/lista.h"
 #include "usuario.h"
 #include "publicacion.h"
 
