@@ -273,7 +273,46 @@ static void opcionUsuariosMasActivos(RedSocial& red) {
     }
 }
 
-int main() {
+/*
+ * Bateria de escalado: mide carga, insercion, busqueda, BFS, sugerencias
+ * y top-K para una serie creciente de N y vuelca el resultado a CSV. Se usa
+ * "cientos de miles" (E6) como la mayor N, no todos los tamanos: por encima
+ * de 20 000 medirOperaciones ya no cronometra el top-K porque hoy es O(n^2)
+ * (Defecto 2, redSocial.cpp:67) y se colgaria la bateria entera.
+ * No es una de las 13 funcionalidades del menu: es la herramienta de
+ * medicion permitida por el enunciado (§2), asi que vive fuera del menu,
+ * detras de un flag de linea de comandos.
+ */
+static void modoEscalado(const char* rutaSalida) {
+    const int tamanos[] = {2000, 4000, 8000, 16000, 32000, 64000, 100000, 200000, 500000};
+    const int cantidadTamanos = static_cast<int>(sizeof(tamanos) / sizeof(tamanos[0]));
+
+    MedicionTiempos mediciones[cantidadTamanos];
+
+    printf("Bateria de escalado: %d tamanos de N\n", cantidadTamanos);
+    for (int i = 0; i < cantidadTamanos; i++) {
+        printf("  N = %-8d ... ", tamanos[i]);
+        fflush(stdout);
+
+        mediciones[i] = RedSocial::medirOperaciones(tamanos[i]);
+
+        printf("carga=%8.2fms  busqueda=%7.5fms  bfs=%7.2fms  sugerencias=%7.4fms  topk=%s\n",
+               mediciones[i].msCarga, mediciones[i].msBusqueda, mediciones[i].msBFS,
+               mediciones[i].msSugerencias,
+               mediciones[i].msTopK < 0 ? "no medido (O(n^2), Defecto 2)" : "medido");
+    }
+
+    if (exportarMedicionesCSV(rutaSalida, mediciones, cantidadTamanos)) {
+        printf("\nMediciones exportadas a %s\n", rutaSalida);
+    }
+}
+
+int main(int argc, char** argv) {
+    if (argc > 1 && strcmp(argv[1], "--bench") == 0) {
+        modoEscalado("output/mediciones.csv");
+        return 0;
+    }
+
     RedSocial red;
 
     printf("Cargando %s ...\n", RUTA_SNAP);
