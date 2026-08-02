@@ -36,6 +36,27 @@ static bool leerEntero(const char* etiqueta, int& destino) {
     return true;
 }
 
+/*
+ * Lee una linea completa como texto libre (nombre, email, contenido...).
+ * Recorta el salto de linea final a mano en vez de con strcspn+STL.
+ * Devuelve false si se acabo la entrada.
+ * @complejidad O(longitud de la linea)
+ */
+static bool leerTexto(const char* etiqueta, char* destino, int tamMax) {
+    printf("%s", etiqueta);
+    fflush(stdout);
+
+    if (!fgets(destino, tamMax, stdin)) {
+        return false;
+    }
+    int i = 0;
+    while (destino[i] != '\0') {
+        if (destino[i] == '\n') { destino[i] = '\0'; break; }
+        i++;
+    }
+    return true;
+}
+
 /* @complejidad O(1) */
 static void mostrarMenu(const RedSocial& red) {
     printf("\n");
@@ -71,6 +92,55 @@ static void pendiente(int opcion) {
     printf("  [opcion %d todavia no conectada]\n", opcion);
 }
 
+/* @complejidad O(1): una insercion en la tabla hash + un vertice en el grafo */
+static void opcionRegistrarUsuario(RedSocial& red) {
+    int id;
+    char nombre[64], email[64], fecha[16];
+
+    if (!leerEntero("  ID: ", id)) return;
+    if (!leerTexto("  Nombre: ", nombre, sizeof(nombre))) return;
+    if (!leerTexto("  Email: ", email, sizeof(email))) return;
+    if (!leerTexto("  Fecha de registro (YYYY-MM-DD): ", fecha, sizeof(fecha))) return;
+
+    if (red.registrarUsuario(id, nombre, email, fecha)) {
+        printf("  Usuario %d registrado.\n", id);
+    } else {
+        printf("  Ya existe un usuario con ID %d.\n", id);
+    }
+}
+
+/* @complejidad O(grado del usuario) por las aristas que hay que desconectar */
+static void opcionEliminarUsuario(RedSocial& red) {
+    int id;
+    if (!leerEntero("  ID a eliminar: ", id)) return;
+
+    if (red.eliminarUsuario(id)) {
+        printf("  Usuario %d eliminado.\n", id);
+    } else {
+        printf("  No existe un usuario con ID %d.\n", id);
+    }
+}
+
+/* @complejidad O(1) promedio: busqueda en la tabla hash */
+static void opcionBuscarUsuario(RedSocial& red) {
+    int id;
+    if (!leerEntero("  ID a buscar: ", id)) return;
+
+    Usuario* u = red.buscarUsuarioPorId(id);
+    if (!u) {
+        printf("  No existe un usuario con ID %d.\n", id);
+        return;
+    }
+    printf("  ID: %d\n", u->getId());
+    printf("  Nombre: %s\n", u->getNombre());
+    printf("  Email: %s\n", u->getEmail());
+    printf("  Registrado: %s\n", u->getFechaRegistro());
+    printf("  Amigos: %d\n", u->getContadorAmigos());
+    printf("  Publicaciones: %d\n", u->getContadorPublicaciones());
+    printf("  Seguidores: %d\n", u->getSeguidores());
+    printf("  Reacciones recibidas: %d\n", u->getReacciones());
+}
+
 int main() {
     RedSocial red;
 
@@ -94,7 +164,9 @@ int main() {
             case 0:
                 printf("  Hasta luego.\n");
                 break;
-            case 1: case 2: case 3:
+            case 1: opcionRegistrarUsuario(red); break;
+            case 2: opcionEliminarUsuario(red); break;
+            case 3: opcionBuscarUsuario(red); break;
             case 4: case 5:
             case 6: case 7: case 8: case 9: case 10:
             case 11: case 12: case 13:
