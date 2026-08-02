@@ -36,7 +36,7 @@ public:
     // metodos modificadores
     void agregarPublicacion(int idPub);
     void agregarAmigo(int idAmigo);
-    void incrementarSeguidores();
+    void incrementarSeguidores(int cantidad = 1);
     void incrementarReacciones(int cantidad = 1);
 
     bool operator>(const Usuario& otro) const;

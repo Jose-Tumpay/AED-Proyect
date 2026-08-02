@@ -36,6 +36,10 @@ public:
     bool cargarGrafoSNAP(const char* rutaArchivo);
     bool cargarPublicacionesCSV(const char* rutaArchivo);
 
+    // vuelca las aristas de amistad a CSV (origen,destino) para un script
+    // externo de visualizacion (T7). Ver red/redSocial.cpp.
+    bool exportarGrafoCSV(const char* rutaSalida);
+
     // generador sintetico: usuarios agrupados en comunidades, conectados por
     // enlace preferencial (mas grado => mas probable recibir la nueva amistad).
     // Ver red/redSocial_io.cpp
@@ -50,7 +54,8 @@ public:
     // operaciones de la red
     bool registrarUsuario(int id, const char* nombre, const char* email, const char* fecha);
     bool agregarAmistad(int id1, int id2);
-    void crearPublicacion(int idPub, int idUsuario, const char* contenido, const char* fecha, int likes = 0);
+    void crearPublicacion(int idPub, int idUsuario, const char* contenido, const char* fecha,
+                           int likes = 0, int comentariosSinteticos = 0);
 
     Usuario* buscarUsuarioPorId(int id);
     Lista<int> caminoAmistad(int idOrigen, int idDestino);

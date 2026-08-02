@@ -1,0 +1,11 @@
+# Documentos de trabajo interno del equipo: no van al repo compartido.
+GUION_VIDEO.md
+GUION_VIDEO.pdf
+PLAN-v2.pdf
+PENDIENTES.md
+Informe_Tecnico_AED.docx
+
+# Artefactos de build/medicion.
+app
+*.o
+*.exe
