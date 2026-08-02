@@ -1,5 +1,7 @@
 #include "redSocial.h"
 #include <cstdio>
+#include <cstdlib>
+#include <cstring>
 
 RedSocial::RedSocial() {
     totalUsuarios = 0;
@@ -48,6 +50,9 @@ void RedSocial::crearPublicacion(int idPub, int idUsuario, const char* contenido
     Usuario* u = usuariosPorId.buscar(idUsuario);
     if (u != nullptr) {
         u->agregarPublicacion(idPub);
+        if (likes > 0) {
+            u->incrementarReacciones(likes);
+        }
     }
 }
 
@@ -280,4 +285,24 @@ bool RedSocial::eliminarUsuario(int idUsuario) {
     totalUsuarios--;
 
     return true;
+}
+
+bool RedSocial::darLike(int idPub) {
+    char pIdStr[40];
+    snprintf(pIdStr, sizeof(pIdStr), "%d", idPub);
+
+    for (int i = 0; i < publicaciones.obtenerTamano(); i++) {
+        Publicacion& pub = publicaciones.obtener(i);
+        if (strcmp(pub.getPostId(), pIdStr) == 0) {
+            pub.agregarLike();
+
+            int idAutor = atoi(pub.getUserId());
+            Usuario* autor = usuariosPorId.buscar(idAutor);
+            if (autor != nullptr) {
+                autor->incrementarReacciones();
+            }
+            return true;
+        }
+    }
+    return false;
 }
