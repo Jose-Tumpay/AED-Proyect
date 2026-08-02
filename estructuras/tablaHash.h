@@ -58,6 +58,9 @@ public:
         tabla = new Lista<Par>[capacidad];
     }
 
+    TablaHash(const TablaHash&) = delete;
+    TablaHash& operator=(const TablaHash&) = delete;
+    
     ~TablaHash() {
         delete[] tabla;
     }

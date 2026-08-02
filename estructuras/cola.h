@@ -17,6 +17,9 @@ private:
 public:
     Cola() : frenteNodo(nullptr), finalNodo(nullptr), tamano(0) {}
 
+    Cola(const Cola&) = delete;
+    Cola& operator=(const Cola&) = delete;
+
     ~Cola() {
         while (!estaVacia()) encolar_pop();
     }

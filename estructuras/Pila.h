@@ -16,6 +16,12 @@ private:
 public:
     Pila() : topeNodo(nullptr), tamano(0) {}
 
+    // Copiar una Pila haria un shallow-copy de los nodos: el destructor de
+    // ambas copias borraria los mismos punteros -> double free. Se bloquea
+    // en compilacion en vez de dejarlo como bug en tiempo de ejecucion.
+    Pila(const Pila&) = delete;
+    Pila& operator=(const Pila&) = delete;
+
     ~Pila() {
         while (!estaVacia()) desapilar();
     }

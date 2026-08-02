@@ -46,6 +46,9 @@ public:
         heap = new T[capacidad];
     }
 
+    ColaPrioridad(const ColaPrioridad&) = delete;
+    ColaPrioridad& operator=(const ColaPrioridad&) = delete;
+
     ~ColaPrioridad() {
         delete[] heap;
     }
