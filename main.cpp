@@ -219,6 +219,59 @@ static void opcionCaminoAmistad(RedSocial& red) {
     printf("\n");
 }
 
+/* @complejidad O(amigos del usuario 1) con busqueda O(amigos del usuario 2) por elemento */
+static void opcionAmigosEnComun(RedSocial& red) {
+    int id1, id2;
+    if (!leerEntero("  ID del primer usuario: ", id1)) return;
+    if (!leerEntero("  ID del segundo usuario: ", id2)) return;
+
+    Lista<int> comunes = red.amigosEnComun(id1, id2);
+    if (comunes.estaVacia()) {
+        printf("  No tienen amigos en comun.\n");
+        return;
+    }
+    printf("  Amigos en comun (%d): ", comunes.obtenerTamano());
+    for (int i = 0; i < comunes.obtenerTamano(); i++) {
+        printf("%d ", comunes.obtener(i));
+    }
+    printf("\n");
+}
+
+/* @complejidad O(amigos * amigos-de-amigos) */
+static void opcionSugerenciasAmistad(RedSocial& red) {
+    int id;
+    if (!leerEntero("  ID del usuario: ", id)) return;
+
+    Lista<int> sugerencias = red.obtenerSugerenciasAmistad(id);
+    if (sugerencias.estaVacia()) {
+        printf("  No hay sugerencias para el usuario %d.\n", id);
+        return;
+    }
+    printf("  Sugerencias (%d): ", sugerencias.obtenerTamano());
+    for (int i = 0; i < sugerencias.obtenerTamano(); i++) {
+        printf("%d ", sugerencias.obtener(i));
+    }
+    printf("\n");
+}
+
+/* @complejidad O(n log n): un heap con todos los usuarios */
+static void opcionUsuariosMasActivos(RedSocial& red) {
+    int topK;
+    if (!leerEntero("  Cuantos usuarios mostrar: ", topK)) return;
+
+    Lista<Usuario> top = red.obtenerTopUsuariosActivos(topK);
+    if (top.estaVacia()) {
+        printf("  No hay usuarios registrados.\n");
+        return;
+    }
+    printf("  Top %d usuarios por publicaciones:\n", top.obtenerTamano());
+    for (int i = 0; i < top.obtenerTamano(); i++) {
+        Usuario& u = top.obtener(i);
+        printf("    %d) ID %-8d %-24s publicaciones: %d\n",
+               i + 1, u.getId(), u.getNombre(), u.getContadorPublicaciones());
+    }
+}
+
 int main() {
     RedSocial red;
 
@@ -250,8 +303,10 @@ int main() {
             case 6: opcionAgregarAmigo(red); break;
             case 7: opcionEliminarAmigo(red); break;
             case 8: opcionCaminoAmistad(red); break;
-            case 9: case 10:
-            case 11: case 12: case 13:
+            case 9: opcionAmigosEnComun(red); break;
+            case 10: opcionSugerenciasAmistad(red); break;
+            case 12: opcionUsuariosMasActivos(red); break;
+            case 11: case 13:
                 pendiente(opcion);
                 break;
             default:
