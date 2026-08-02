@@ -31,6 +31,7 @@ public:
     Lista<int> caminoAmistad(int idOrigen, int idDestino);
     Lista<Usuario> obtenerTopUsuariosActivos(int topK);
     Lista<int> amigosEnComun(int id1, int id2);
+    Lista<int> obtenerSugerenciasAmistad(int idUsuario);
 
     int obtenerNumUsuarios() const { return totalUsuarios; }
     int obtenerNumPublicaciones() const { return totalPublicaciones; }

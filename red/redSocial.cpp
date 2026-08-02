@@ -102,6 +102,41 @@ Lista<int> RedSocial::amigosEnComun(int id1, int id2) {
     return enComun;
 }
 
+Lista<int> RedSocial::obtenerSugerenciasAmistad(int idUsuario) {
+    Lista<int> sugerencias;
+
+    Usuario* u = usuariosPorId.buscar(idUsuario);
+    if (u == nullptr) {
+        return sugerencias;
+    }
+
+    const Lista<int>& misAmigos = u->getAmigos();
+
+    // ir por cada amigo y luego por sus amigos
+    for (int i = 0; i < misAmigos.obtenerTamano(); i++) {
+        int idAmigo = misAmigos.obtener(i);
+        Usuario* amigo = usuariosPorId.buscar(idAmigo);
+
+        if (amigo != nullptr) {
+            const Lista<int>& amigosDelAmigo = amigo->getAmigos();
+
+            // ir por cada amigo del amigo y validar si es una sugerencia
+            for (int j = 0; j < amigosDelAmigo.obtenerTamano(); j++) {
+                int candidato = amigosDelAmigo.obtener(j);
+
+                // verificar qeu no sea
+                if (candidato != idUsuario && 
+                    !misAmigos.contiene(candidato) && 
+                    !sugerencias.contiene(candidato)) {
+                    sugerencias.agregarFinal(candidato);
+                }
+            }
+        }
+    }
+
+    return sugerencias;
+}
+
 bool RedSocial::cargarGrafoSNAP(const char* rutaArchivo) {
     FILE* f = fopen(rutaArchivo, "r");
     if (!f) {
