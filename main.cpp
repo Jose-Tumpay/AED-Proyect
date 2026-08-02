@@ -255,7 +255,8 @@ static void opcionAmigosEnComun(RedSocial& red) {
     printf("\n");
 }
 
-/* @complejidad O(amigos * amigos-de-amigos) */
+/* @complejidad O(amigos * amigos-de-amigos + c log c): c = candidatos unicos,
+   rankeados por amigos en comun (mayor primero) */
 static void opcionSugerenciasAmistad(RedSocial& red) {
     int id;
     if (!leerEntero("  ID del usuario: ", id)) return;
@@ -265,7 +266,7 @@ static void opcionSugerenciasAmistad(RedSocial& red) {
         printf("  No hay sugerencias para el usuario %d.\n", id);
         return;
     }
-    printf("  Sugerencias (%d): ", sugerencias.obtenerTamano());
+    printf("  Sugerencias por amigos en comun, mayor primero (%d): ", sugerencias.obtenerTamano());
     for (int i = 0; i < sugerencias.obtenerTamano(); i++) {
         printf("%d ", sugerencias.obtener(i));
     }

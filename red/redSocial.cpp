@@ -126,6 +126,13 @@ Lista<int> RedSocial::amigosEnComun(int id1, int id2) {
     return enComun;
 }
 
+// E5#10: el enunciado (§4) pide "calcular sugerencias", no solo listarlas
+// en el orden arbitrario en que aparecen al recorrer amigos-de-amigos.
+// Ahora se cuenta, por candidato, cuantos amigos en comun tiene con el
+// usuario usando una TablaHash<int,int>, y se ordena a los candidatos por
+// ese conteo (mayor primero) con una ColaPrioridad.
+// @complejidad O(A * B) tiempo para contar (A = mis amigos, B = amigos por
+// amigo) + O(c log c) para ordenar los c candidatos unicos encontrados.
 Lista<int> RedSocial::obtenerSugerenciasAmistad(int idUsuario) {
     Lista<int> sugerencias;
 
@@ -136,23 +143,58 @@ Lista<int> RedSocial::obtenerSugerenciasAmistad(int idUsuario) {
 
     const Lista<int>& misAmigos = u->getAmigos();
 
-    // ir por cada amigo y luego por sus amigos
+    // marcar mis amigos actuales para descartarlos como candidatos: O(1)
+    // por busqueda en vez del .contiene() O(n) de Lista
+    TablaHash<int, bool> yaSoyAmigo(misAmigos.obtenerTamano() * 2 + 7);
+    for (int idAmigo : misAmigos) {
+        yaSoyAmigo.insertar(idAmigo, true);
+    }
+
+    // conteo de amigos en comun por candidato, y el orden en que aparecio
+    // cada candidato por primera vez (para recorrerlos sin duplicados)
+    TablaHash<int, int> conteoComun;
+    Lista<int> candidatosUnicos;
+
     for (int idAmigo : misAmigos) {
         Usuario* amigo = usuariosPorId.buscar(idAmigo);
+        if (amigo == nullptr) continue;
 
-        if (amigo != nullptr) {
-            const Lista<int>& amigosDelAmigo = amigo->getAmigos();
+        for (int candidato : amigo->getAmigos()) {
+            if (candidato == idUsuario || yaSoyAmigo.buscar(candidato) != nullptr) {
+                continue;
+            }
 
-            // ir por cada amigo del amigo y validar si es una sugerencia
-            for (int candidato : amigosDelAmigo) {
-                // verificar qeu no sea
-                if (candidato != idUsuario && 
-                    !misAmigos.contiene(candidato) && 
-                    !sugerencias.contiene(candidato)) {
-                    sugerencias.agregarFinal(candidato);
-                }
+            int* conteoActual = conteoComun.buscar(candidato);
+            if (conteoActual != nullptr) {
+                (*conteoActual)++;
+            } else {
+                conteoComun.insertar(candidato, 1);
+                candidatosUnicos.agregarFinal(candidato);
             }
         }
+    }
+
+    // pareja (id, conteo) solo para poder ordenar candidatos con la
+    // ColaPrioridad generica, que necesita operator> / operator<
+    struct CandidatoConConteo {
+        int id;
+        int conteo;
+        CandidatoConConteo() {}
+        bool operator>(const CandidatoConConteo& o) const { return conteo > o.conteo; }
+        bool operator<(const CandidatoConConteo& o) const { return conteo < o.conteo; }
+    };
+
+    ColaPrioridad<CandidatoConConteo> ranking;
+    for (int candidato : candidatosUnicos) {
+        int* conteo = conteoComun.buscar(candidato);
+        CandidatoConConteo cc;
+        cc.id = candidato;
+        cc.conteo = (conteo != nullptr) ? *conteo : 0;
+        ranking.insertar(cc);
+    }
+
+    while (!ranking.estaVacia()) {
+        sugerencias.agregarFinal(ranking.extraerMaximo().id);
     }
 
     return sugerencias;
