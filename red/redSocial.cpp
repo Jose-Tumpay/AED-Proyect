@@ -79,6 +79,29 @@ Lista<Usuario> RedSocial::obtenerTopUsuariosActivos(int topK) {
     return topUsuarios;
 }
 
+Lista<int> RedSocial::amigosEnComun(int id1, int id2) {
+    Lista<int> enComun;
+
+    Usuario* u1 = usuariosPorId.buscar(id1);
+    Usuario* u2 = usuariosPorId.buscar(id2);
+
+    if (u1 == nullptr || u2 == nullptr) {
+        return enComun;
+    }
+
+    const Lista<int>& amigos1 = u1->getAmigos();
+    const Lista<int>& amigos2 = u2->getAmigos();
+
+    for (int i = 0; i < amigos1.obtenerTamano(); i++) {
+        int idAmigo = amigos1.obtener(i);
+        if (amigos2.contiene(idAmigo)) {
+            enComun.agregarFinal(idAmigo);
+        }
+    }
+
+    return enComun;
+}
+
 bool RedSocial::cargarGrafoSNAP(const char* rutaArchivo) {
     FILE* f = fopen(rutaArchivo, "r");
     if (!f) {

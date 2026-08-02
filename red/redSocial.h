@@ -30,6 +30,7 @@ public:
     Usuario* buscarUsuarioPorId(int id);
     Lista<int> caminoAmistad(int idOrigen, int idDestino);
     Lista<Usuario> obtenerTopUsuariosActivos(int topK);
+    Lista<int> amigosEnComun(int id1, int id2);
 
     int obtenerNumUsuarios() const { return totalUsuarios; }
     int obtenerNumPublicaciones() const { return totalPublicaciones; }
