@@ -156,10 +156,14 @@ Max-heap: `flotar` compara con el padre `(i-1)/2` y sube mientras sea mayor
 (`colaPrioridad.h:22-36`). `insertar` es O(log n) amortizado (inserta al final y
 flota); `extraerMaximo` es O(log n) (saca la raíz, sube el último elemento y hunde).
 Se usa para los dos rankings top-K del sistema (`obtenerTopUsuariosActivos`,
-`obtenerPublicacionesConMasReacciones`): meter los `n` elementos y sacar los `k`
-mejores es O(n log n) — más caro que un heap de tamaño `k` (que sería O(n log k)),
-pero mucho más simple de implementar bien, y con los tamaños medidos en §6 la
-diferencia es milisegundos, no un cuello de botella real.
+`obtenerPublicacionesConMasReacciones`), acotado a tamaño `k` (T6): en vez de meter los
+`n` elementos completos, se mantiene un heap de a lo sumo `k` elementos y solo se
+reemplaza el tope cuando aparece algo mayor. Como `ColaPrioridad` es un max-heap y acá
+hace falta el mínimo del top-`k` parcial para poder descartar candidatos, se envuelve
+`T` en un `Inverso<T>` local a `redSocial.cpp` que invierte `operator>`/`operator<` —
+así se reutiliza la misma implementación de heap como min-heap, sin duplicar lógica.
+Un `verTope()` nuevo en `ColaPrioridad` (O(1), no extrae) permite comparar sin sacar el
+elemento. Resultado: O(n log k) y O(k) de memoria, en vez de O(n log n) y O(n).
 
 ### 3.5 · `Cola<T>` y `Pila<T>` — enlazadas simples
 
@@ -321,8 +325,8 @@ tal cual, no son estimaciones nuevas.
 | 9 | `amigosEnComun` | O(grado(u1) + grado(u2)) | recorre la lista de amigos de u1, consulta `contiene` en la de u2 |
 | 10 | `obtenerSugerenciasAmistad` | O(grado(u) · grado promedio de sus amigos) | dos niveles de vecinos, sin rankear por cantidad de amigos en común |
 | 11 | `obtenerPublicacionesDeUsuario` | O(n publicaciones) | recorre todas las publicaciones filtrando por autor (no hay índice usuario→publicaciones por objeto, aunque `Usuario.publicaciones` guarda los IDs) |
-| 12 | `obtenerTopUsuariosActivos` | O(n log n) | inserta los `n` usuarios en un heap y extrae los `k` mejores |
-| 13 | `obtenerPublicacionesConMasReacciones` | O(m log m) | igual que 12, sobre las `m` publicaciones |
+| 12 | `obtenerTopUsuariosActivos` | O(n log k) | heap acotado a tamaño `k` (T6), no un heap con los `n` usuarios completos |
+| 13 | `obtenerPublicacionesConMasReacciones` | O(m log k) | igual que 12, sobre las `m` publicaciones |
 
 La complejidad de 9 y 10 depende del grado de los usuarios, no de `n` total — con el
 generador sintético (enlace preferencial, §6.1) unos pocos nodos "hub" concentran
@@ -371,35 +375,27 @@ herramienta de medición que el enunciado permite).
 
 ### 6.3 · Resultados
 
-Recorridos originales (`f8b42f7`, antes del arreglo de T1) contra la corrida actual sobre
-el HEAD de hoy (`30b46a1`, `./app --bench`, misma semilla fija):
+Corrida actual (`./app --bench`, misma semilla fija), ya con el heap acotado de T6 —
+el límite artificial de medición del top-K por encima de 20 000 (`LIMITE_MEDICION_TOPK`)
+que tenían las corridas anteriores ya no existe, se mide en las nueve filas:
 
 | N | carga (ms) | BFS (ms) | sugerencias (ms) | top-K (ms) |
 |---:|---:|---:|---:|---:|
-| 2 000 | 4.71 | 5.51 | 1.02 | **9.83** |
-| 4 000 | 8.80 | 5.55 | 0.75 | **17.95** |
-| 8 000 | 80.38¹ | 20.75 | 0.74 | **40.32** |
-| 16 000 | 208.69 | 37.07 | 0.87 | **43.94** |
-| 32 000 | 332.49 | 93.36 | 1.01 | no medido² |
-| 64 000 | 852.87 | 201.74 | 0.89 | no medido² |
-| 100 000 | 998.10 | 201.38 | 0.60 | no medido² |
-| 200 000 | 2 110.56 | 321.68 | 0.58 | no medido² |
-| 500 000 | 9 540.94 | 1 620.63 | 0.91 | no medido² |
+| 2 000 | 7.26 | 2.69 | 1.24 | **2.91** |
+| 4 000 | 15.12 | 5.41 | 1.12 | **7.66** |
+| 8 000 | 69.86 | 14.87 | 0.96 | **13.65** |
+| 16 000 | 197.05 | 36.86 | 0.94 | **23.34** |
+| 32 000 | 446.75 | 100.40 | 1.13 | **53.07** |
+| 64 000 | 1 014.11 | 216.79 | 0.85 | **100.95** |
+| 100 000 | 1 062.27 | 190.43 | 0.80 | **133.64** |
+| 200 000 | 2 271.23 | 357.49 | 0.77 | **261.45** |
+| 500 000 | 8 309.23 | 1 771.21 | 0.98 | **906.69** |
 
-(columna "búsqueda" omitida: en las dos corridas midió sistemáticamente 0.00 ms —
-por debajo de la resolución que `<chrono>` puede capturar para una sola búsqueda en
-`TablaHash`, que es O(1) promedio; no es un dato útil así medido.)
-
-¹ Este valor de carga rompe la tendencia (más que el doble de N=4 000 pero también más que
-N=16 000 más abajo); no se repite en el resto de la serie. Se deja tal cual en vez de
-descartarlo — es más probable que sea ruido del sistema durante la corrida (otro proceso
-compitiendo por CPU un instante) que un efecto real del código, pero no se verificó
-repitiendo la medición en esta pasada.
-
-² El límite de medición del top-K por encima de 20 000 (`LIMITE_MEDICION_TOPK`,
-`redSocial_io.cpp:17`) sigue en el script aunque el defecto que lo motivó ya se corrigió
-(ver §6.4) — quedó como tarea de limpieza pendiente del equipo, no se tocó al escribir este
-informe para no mezclar una edición de código con la redacción del documento.
+(columna "búsqueda" omitida: midió sistemáticamente 0.00 ms — por debajo de la
+resolución que `<chrono>` puede capturar para una sola búsqueda en `TablaHash`, que es
+O(1) promedio; no es un dato útil así medido. Los valores de carga/BFS varían frente a
+corridas anteriores de este informe por ruido normal de la máquina entre ejecuciones —
+la comparación relevante es la forma de la curva, no el valor absoluto de cada celda.)
 
 ### 6.4 · Análisis
 
@@ -438,6 +434,19 @@ completa de cada vértice que visita) pagan ese costo O(grado) en los hubs. Es u
 hipótesis, no un hecho verificado: confirmarla requeriría instrumentar el código para
 medir el grado máximo a distintos N, que es trabajo de código y queda fuera del alcance
 de escribir este informe.
+
+**Top-K acotado a tamaño k (T6).** `obtenerTopUsuariosActivos` y
+`obtenerPublicacionesConMasReacciones` insertaban los `n`/`m` elementos completos en un
+`ColaPrioridad` y extraían los `k` mejores (O(n log n), O(n) de memoria). Ahora se
+mantiene un heap acotado a `k` elementos: se inserta mientras haya espacio y, una vez
+lleno, solo se reemplaza el mínimo actual si aparece un candidato mayor (comparando con
+`verTope()`, nuevo en `ColaPrioridad`, O(1)). Como `ColaPrioridad` es un max-heap y acá
+hace falta comparar contra el mínimo del top-`k` parcial, se envuelve cada elemento en
+un `Inverso<T>` (local a `redSocial.cpp`) que invierte el orden de comparación. Efecto en
+la tabla de §6.3: para N=500 000, top-K con `k=10` mide 906.7 ms — antes de este fix
+directamente no se medía por encima de 20 000 (ver corridas de informes previos), y una
+proyección lineal desde N=16 000 (23.3 ms con `k=10`) hubiera dado un resultado similar,
+consistente con la mejora de O(n log n) a O(n log k) para `k` fijo y pequeño.
 
 ## 7 · Capturas
 
@@ -602,13 +611,12 @@ Lo que sigue genuinamente pendiente, verificado hoy contra el código:
   hay ninguna llamada a `agregarComentario` en todo el proyecto: no hay opción de menú
   para comentar ni se poblan comentarios al cargar los datasets. La lista de
   comentarios de toda publicación está vacía en la práctica.
-- **Límite artificial de medición del top-K** (`LIMITE_MEDICION_TOPK = 20000`,
-  `redSocial_io.cpp:17`) sigue en el script de bench aunque el defecto que lo motivó
-  ya se corrigió — con el arreglo de `fb14ff7`, medir top-K hasta 500 000 debería ser
-  viable y probablemente rápido; nadie subió el límite todavía.
 - **Visualización del grafo con comunidades** (§4.2) no se generó — es el único hueco
   de este informe que sigue siendo un placeholder explícito en vez de contenido real.
 
-Ninguno de estos cuatro puntos es difícil de cerrar comparado con lo que ya se resolvió
-(rehash, defecto O(n²), las 13 operaciones cableadas); quedan como la lista de trabajo
-concreta para la entrega final, no como incertidumbre sobre qué falta.
+(El límite artificial de medición del top-K, `LIMITE_MEDICION_TOPK`, ya se quitó junto
+con el heap acotado de T6 — ver §6.4.)
+
+Ninguno de estos puntos es difícil de cerrar comparado con lo que ya se resolvió
+(rehash, defecto O(n²), las 13 operaciones cableadas, top-K acotado); quedan como la
+lista de trabajo concreta para la entrega final, no como incertidumbre sobre qué falta.

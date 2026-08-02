@@ -3,6 +3,25 @@
 #include <cstdlib>
 #include <cstring>
 
+namespace {
+
+// Envoltorio que invierte el orden de comparacion de T, para poder usar
+// ColaPrioridad<Inverso<T>> como min-heap sin reimplementar la logica de
+// heap (que ya vive, probada, en ColaPrioridad). Util local a este .cpp,
+// no una estructura de dominio nueva en estructuras/.
+template <typename T>
+struct Inverso {
+    T valor;
+
+    Inverso() : valor() {}
+    explicit Inverso(const T& v) : valor(v) {}
+
+    bool operator>(const Inverso<T>& otro) const { return valor < otro.valor; }
+    bool operator<(const Inverso<T>& otro) const { return valor > otro.valor; }
+};
+
+} // namespace
+
 RedSocial::RedSocial() {
     totalUsuarios = 0;
     totalPublicaciones = 0;
@@ -65,20 +84,30 @@ Lista<int> RedSocial::caminoAmistad(int idOrigen, int idDestino) {
 }
 
 Lista<Usuario> RedSocial::obtenerTopUsuariosActivos(int topK) {
-    ColaPrioridad<Usuario> maxHeap;
+    Lista<Usuario> topUsuarios;
 
     Lista<Usuario> todos = usuariosPorId.obtenerTodosLosValores();
+    int n = todos.obtenerTamano();
+    if (topK <= 0 || n == 0) return topUsuarios;
+
+    // heap acotado a min(topK, n): O(n log k) y O(k) de memoria, en vez de
+    // meter los n elementos completos (O(n log n) y O(n))
+    int capInicial = (topK < n) ? topK : n;
+    ColaPrioridad<Inverso<Usuario>> minHeap(capInicial);
 
     for (auto& u : todos) {
-        maxHeap.insertar(u);
+        if (minHeap.obtenerTamano() < topK) {
+            minHeap.insertar(Inverso<Usuario>(u));
+        } else if (u > minHeap.verTope().valor) {
+            minHeap.extraerMaximo();
+            minHeap.insertar(Inverso<Usuario>(u));
+        }
     }
 
-    Lista<Usuario> topUsuarios;
-    int contador = 0;
-
-    while (!maxHeap.estaVacia() && contador < topK) {
-        topUsuarios.agregarFinal(maxHeap.extraerMaximo());
-        contador++;
+    // extraerMaximo() del heap invertido da el minimo real primero;
+    // agregarInicio() en cada paso deja el resultado en orden descendente
+    while (!minHeap.estaVacia()) {
+        topUsuarios.agregarInicio(minHeap.extraerMaximo().valor);
     }
 
     return topUsuarios;
@@ -149,18 +178,25 @@ Lista<Publicacion> RedSocial::obtenerPublicacionesDeUsuario(int idUsuario) {
 }
 
 Lista<Publicacion> RedSocial::obtenerPublicacionesConMasReacciones(int topK) {
-    ColaPrioridad<Publicacion> maxHeap;
+    Lista<Publicacion> topPublicaciones;
+
+    int n = publicaciones.obtenerTamano();
+    if (topK <= 0 || n == 0) return topPublicaciones;
+
+    int capInicial = (topK < n) ? topK : n;
+    ColaPrioridad<Inverso<Publicacion>> minHeap(capInicial);
 
     for (auto& pub : publicaciones) {
-        maxHeap.insertar(pub);
+        if (minHeap.obtenerTamano() < topK) {
+            minHeap.insertar(Inverso<Publicacion>(pub));
+        } else if (pub > minHeap.verTope().valor) {
+            minHeap.extraerMaximo();
+            minHeap.insertar(Inverso<Publicacion>(pub));
+        }
     }
 
-    Lista<Publicacion> topPublicaciones;
-    int contador = 0;
-
-    while (!maxHeap.estaVacia() && contador < topK) {
-        topPublicaciones.agregarFinal(maxHeap.extraerMaximo());
-        contador++;
+    while (!minHeap.estaVacia()) {
+        topPublicaciones.agregarInicio(minHeap.extraerMaximo().valor);
     }
 
     return topPublicaciones;

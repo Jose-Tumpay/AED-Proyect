@@ -12,10 +12,6 @@
 
 namespace {
 
-// Por encima de este N, obtenerTopUsuariosActivos (O(n^2) por el Defecto 2
-// del plan) tarda minutos en vez de milisegundos: no se mide, se reporta -1.
-const int LIMITE_MEDICION_TOPK = 20000;
-
 using Reloj = std::chrono::steady_clock;
 
 double milisegundosDesde(Reloj::time_point inicio) {
@@ -185,19 +181,9 @@ MedicionTiempos RedSocial::medirOperaciones(int n, int enlacesPorUsuario, int us
     red.obtenerSugerenciasAmistad(0);
     m.msSugerencias = milisegundosDesde(t0);
 
-    // obtenerTopUsuariosActivos hace, para cada usuario, todos.obtener(i)
-    // desde la cabeza de una Lista enlazada (Defecto 2 del plan de trabajo,
-    // redSocial.cpp:67): el bucle entero es O(n^2). No es tarea de C4
-    // arreglarlo (le toca a T1), pero medirlo sin limite colgaria la
-    // bateria de escalado a partir de unos pocos miles de usuarios. Se
-    // acota la medicion y se deja constancia del limite en el CSV con -1.
-    if (n <= LIMITE_MEDICION_TOPK) {
-        t0 = Reloj::now();
-        red.obtenerTopUsuariosActivos(10);
-        m.msTopK = milisegundosDesde(t0);
-    } else {
-        m.msTopK = -1.0;
-    }
+    t0 = Reloj::now();
+    red.obtenerTopUsuariosActivos(10);
+    m.msTopK = milisegundosDesde(t0);
 
     return m;
 }

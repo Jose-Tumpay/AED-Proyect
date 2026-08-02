@@ -273,7 +273,7 @@ static void opcionPublicacionesDeUsuario(RedSocial& red) {
     }
 }
 
-/* @complejidad O(n log n): un heap con todos los usuarios */
+/* @complejidad O(n log k): heap acotado a tamano k (T6) */
 static void opcionUsuariosMasActivos(RedSocial& red) {
     int topK;
     if (!leerEntero("  Cuantos usuarios mostrar: ", topK)) return;
@@ -291,7 +291,7 @@ static void opcionUsuariosMasActivos(RedSocial& red) {
     }
 }
 
-/* @complejidad O(n log n): un heap con todas las publicaciones */
+/* @complejidad O(n log k): heap acotado a tamano k (T6) */
 static void opcionPublicacionesMasReacciones(RedSocial& red) {
     int topK;
     if (!leerEntero("  Cuantas publicaciones mostrar: ", topK)) return;
@@ -332,10 +332,9 @@ static void modoEscalado(const char* rutaSalida) {
 
         mediciones[i] = RedSocial::medirOperaciones(tamanos[i]);
 
-        printf("carga=%8.2fms  busqueda=%7.5fms  bfs=%7.2fms  sugerencias=%7.4fms  topk=%s\n",
+        printf("carga=%8.2fms  busqueda=%7.5fms  bfs=%7.2fms  sugerencias=%7.4fms  topk=%7.4fms\n",
                mediciones[i].msCarga, mediciones[i].msBusqueda, mediciones[i].msBFS,
-               mediciones[i].msSugerencias,
-               mediciones[i].msTopK < 0 ? "no medido (O(n^2), Defecto 2)" : "medido");
+               mediciones[i].msSugerencias, mediciones[i].msTopK);
     }
 
     if (exportarMedicionesCSV(rutaSalida, mediciones, cantidadTamanos)) {

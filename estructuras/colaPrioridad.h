@@ -78,6 +78,12 @@ public:
         return maximo;
     }
 
+    /// @complejidad O(1) — no modifica el heap, solo consulta la raiz
+    const T& verTope() const {
+        if (tamano == 0) throw std::underflow_error("Heap vacio");
+        return heap[0];
+    }
+
     /// @complejidad O(1)
     bool estaVacia() const { return tamano == 0; }
     /// @complejidad O(1)
