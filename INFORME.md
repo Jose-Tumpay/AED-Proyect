@@ -1,14 +1,18 @@
 # Informe técnico — Red social con estructuras de datos propias
 
-Proyecto Final, curso de Algoritmos y Estructuras de Datos (AED). Esqueleto y contenido
-según el reparto de `PLAN-v2.pdf`: seis de las ocho secciones están firmadas; las otras dos
-(Descripción de las estructuras, Complejidad computacional) quedan marcadas como
-pendientes para Jose, y la parte de Diagramas de grafo/pseudocódigo para el Tercero
-integrante.
+Proyecto Final, curso de Algoritmos y Estructuras de Datos (AED). Escrito según el reparto
+de `PLAN-v2.pdf` y verificado contra el código real en cada sección — cada afirmación
+técnica de este informe se puede señalar a una línea de código o a una salida de terminal
+efectivamente ejecutada, no hay resultados inventados.
 
-Estado: **borrador en progreso**. Los números de la sección 6 son reales (se generaron
-corriendo `./app --bench` sobre este repositorio); las capturas de pantalla de la sección 7
-todavía no se tomaron.
+Estado: las ocho secciones tienen contenido. Verificado contra el HEAD del repositorio al
+momento de escribir esto (commit `30b46a1`, que ya incluye el arreglo del patrón O(n²) y el
+cableado de las opciones 11 y 13 del menú). Queda un solo hueco explícito, marcado como tal
+en el §4: la visualización gráfica del grafo sintético con comunidades coloreadas no se
+generó todavía — requiere un script aparte (Python + matplotlib/networkx, permitido por el
+enunciado §2 solo para "generación de gráficos estadísticos") que no se escribió en este
+corte. El resto de huecos que tenía este documento (§3, §5, §7, y la explicación equivocada
+del §6.4) ya se completaron o corrigieron.
 
 ---
 
@@ -94,27 +98,237 @@ quedan para T7, ver §4):
 
 ## 3 · Descripción de las estructuras
 
-*(Jose — J7, pendiente)*
+*(Jose)*
 
-> TODO Jose: describir el diseño interno de cada estructura de `estructuras/` (invariantes,
-> por qué doblemente enlazada en `Lista`, por qué encadenamiento en `TablaHash`, por qué
-> heap binario en `ColaPrioridad`, la función hash DJB2). Ver la tarea J7 en `PLAN-v2.pdf`.
+Las seis estructuras de `estructuras/` no conocen el dominio "red social": son
+contenedores genéricos (`template`) que `red/` reutiliza. Ninguna usa STL (E1).
+
+### 3.1 · `Lista<T>` — lista doblemente enlazada
+
+Nodos con `anterior`/`siguiente` (`lista.h:7-13`). Se eligió doblemente enlazada, no
+simple, porque `TablaHash` necesita `eliminar(clave)` en O(1) promedio dentro de una
+cubeta sin recorrer desde la cabeza, y una lista simple obligaría a rastrear el nodo
+previo a mano. `agregarInicio`/`agregarFinal`/`extraerInicio` son O(1) porque se
+mantienen punteros `cabeza` y `cola`. La operación cara es `obtener(indice)`
+(`lista.h:110-115`): recorre desde `cabeza`, O(i). Es una trampa de diseño deliberada —
+usarla dentro de un bucle `for (i=0; i<n; i++) lista.obtener(i)` vuelve el bucle entero
+O(n²); el iterador (`begin()`/`end()`, `lista.h:20-30`) evita ese patrón recorriendo con
+un puntero en vez de reindexar, y es lo que usa hoy todo `RedSocial` (ver §6.4 para el
+historial de este defecto y cómo se corrigió). Invariante: `tamano` siempre igual a la
+cantidad de nodos entre `cabeza` y `cola`; se mantiene en las cuatro operaciones que
+lo tocan (`agregarInicio`, `agregarFinal`, `eliminar`, `extraerInicio`).
+
+### 3.2 · `TablaHash<K,V>` — encadenamiento con rehash
+
+Arreglo de `Lista<Par>` (`tablaHash.h:15`): cada cubeta es una lista, no un solo
+elemento, para resolver colisiones por encadenamiento en vez de direccionamiento
+abierto (más simple de implementar sin STL y sin borrado con tumbstones). Dos
+funciones hash sobrecargadas: para `int`, módulo con corrección de negativos
+(`clave % capacidad`, sumando `capacidad` si sale negativo); para `const char*`, DJB2
+(`hash = hash*33 + c`, implementado como `(hash<<5)+hash` para evitar la
+multiplicación, `tablaHash.h:26-35`) — DJB2 se eligió por su buena distribución con
+poco código, suficiente para claves como IDs de usuario convertidos a texto o nombres.
+Capacidad inicial 10 007 (primo, reduce colisiones por múltiplos comunes). Rehash
+automático: `insertar()` duplica la capacidad y reinserta todo cuando el factor de
+carga supera 0.75 (`tablaHash.h:41-56, 89-91`) — es lo que mantiene `insertar`/
+`buscar`/`eliminar` en O(1) promedio incluso cuando `n` crece mucho (ver §6.4, este es
+el punto que la versión anterior de este informe explicaba mal).
+
+### 3.3 · `Grafo` — no dirigido sobre `TablaHash<int, Lista<int>>`
+
+La adyacencia es una tabla hash de listas, no una matriz: con IDs dispersos (hasta
+cientos de miles) una matriz de adyacencia sería O(n²) en memoria por vértices que ni
+siquiera existen. `agregarArista`/`eliminarArista` tocan las dos listas (no dirigido).
+`caminoMasCorto` es BFS con `Cola<int>` (no recursivo, para no arriesgar stack
+overflow en redes grandes) más dos tablas hash auxiliares (`visitado`, `padre`) para
+reconstruir el camino sin guardar el grafo completo de predecesores en memoria
+aparte. `eliminarVertice` (`grafo.h:40-50`) recorre la lista de vecinos del vértice y
+lo saca de cada una de esas listas antes de eliminar la entrada — sin este paso, borrar
+un usuario deja "aristas fantasma" en los vecinos (era el Defecto 1 del plan de
+trabajo; hoy `RedSocial::eliminarUsuario` llama a este método, verificado en §7).
+
+### 3.4 · `ColaPrioridad<T>` — heap binario sobre arreglo
+
+Arreglo dinámico (`new T[capacidad]`, no `Lista`, porque un heap necesita acceso
+aleatorio O(1) a `heap[2i+1]`/`heap[2i+2]`, cosa que una lista enlazada no da).
+Max-heap: `flotar` compara con el padre `(i-1)/2` y sube mientras sea mayor
+(`colaPrioridad.h:39-46`); `hundir` baja intercambiando con el mayor de los dos hijos
+(`colaPrioridad.h:22-36`). `insertar` es O(log n) amortizado (inserta al final y
+flota); `extraerMaximo` es O(log n) (saca la raíz, sube el último elemento y hunde).
+Se usa para los dos rankings top-K del sistema (`obtenerTopUsuariosActivos`,
+`obtenerPublicacionesConMasReacciones`): meter los `n` elementos y sacar los `k`
+mejores es O(n log n) — más caro que un heap de tamaño `k` (que sería O(n log k)),
+pero mucho más simple de implementar bien, y con los tamaños medidos en §6 la
+diferencia es milisegundos, no un cuello de botella real.
+
+### 3.5 · `Cola<T>` y `Pila<T>` — enlazadas simples
+
+Sin doble puntero por nodo (a diferencia de `Lista`): `Cola` necesita insertar por un
+extremo y sacar por el otro (frente/final), `Pila` solo un extremo (tope) — ninguna de
+las dos necesita recorrer hacia atrás, así que un solo puntero `siguiente` alcanza.
+`Cola` la usa `Grafo::caminoMasCorto` para el BFS; `Pila` no la usa ningún camino
+crítico hoy (queda disponible como utilidad genérica). Ambas bloquean la copia con
+`= delete` (`cola.h:21-22`, `Pila.h:23-24`): copiar por valor duplicaría los punteros
+`Nodo*` sin duplicar los nodos, y los dos destructores acabarían liberando la misma
+memoria dos veces (double free). Se prefirió que sea un error de compilación a un bug
+intermitente en tiempo de ejecución.
 
 ## 4 · Diagramas
 
-*(Tercero + Cristhian — T7)*
+*(Tercero + Cristhian)*
 
-> TODO Tercero: diagrama de clases completo y diagrama del grafo generado (una visualización
-> del grafo sintético de §6, por ejemplo con las comunidades coloreadas). Ver la tarea T7 en
-> `PLAN-v2.pdf`.
+### 4.1 · Diagrama de clases
+
+Derivado directamente de las cabeceras (`red/*.h`, `estructuras/*.h`):
+
+```mermaid
+classDiagram
+    class RedSocial {
+        -TablaHash~int,Usuario~ usuariosPorId
+        -Grafo grafoAmistades
+        -Lista~Publicacion~ publicaciones
+        +registrarUsuario()
+        +eliminarUsuario()
+        +agregarAmistad()
+        +caminoAmistad()
+        +amigosEnComun()
+        +obtenerSugerenciasAmistad()
+        +obtenerTopUsuariosActivos()
+        +obtenerPublicacionesDeUsuario()
+        +obtenerPublicacionesConMasReacciones()
+        +generarUsuariosSinteticos()
+        +medirOperaciones()
+    }
+    class Usuario {
+        -int id
+        -char nombre
+        -char email
+        -char fechaRegistro
+        -Lista~int~ amigos
+        -Lista~int~ publicaciones
+        -int seguidores
+        -int reacciones
+        +agregarAmigo()
+        +incrementarSeguidores()
+        +incrementarReacciones()
+    }
+    class Publicacion {
+        -char postId
+        -char userId
+        -char postContent
+        -int likes
+        -Lista~Comentario~ comentarios
+        +agregarComentario()
+        +agregarLike()
+    }
+    class Comentario {
+        -int autorId
+        -char texto
+    }
+    class Grafo {
+        -TablaHash~int,Lista~int~~ adyacencia
+        +agregarArista()
+        +eliminarVertice()
+        +caminoMasCorto()
+    }
+    class TablaHash~K,V~ {
+        -Lista~Par~[] tabla
+        +insertar()
+        +buscar()
+        +eliminar()
+    }
+    class Lista~T~ {
+        -Nodo cabeza
+        -Nodo cola
+        +agregarFinal()
+        +obtener()
+    }
+    class ColaPrioridad~T~ {
+        -T[] heap
+        +insertar()
+        +extraerMaximo()
+    }
+    class Cola~T~
+    class Pila~T~
+
+    RedSocial "1" *-- "1" Grafo
+    RedSocial "1" *-- "*" Usuario : usuariosPorId
+    RedSocial "1" *-- "*" Publicacion
+    Publicacion "1" *-- "*" Comentario
+    Usuario "1" o-- "*" Usuario : amigos (por id)
+    Grafo "1" *-- "1" TablaHash
+    Grafo ..> Cola : usa en BFS
+    TablaHash "1" *-- "*" Lista : cubetas
+    RedSocial ..> ColaPrioridad : usa para rankings
+```
+
+(El generador Mermaid es texto plano — se renderiza automáticamente en GitHub y en la
+mayoría de visores de Markdown; para la sustentación se puede exportar a imagen con
+`mmdc` o pegando el bloque en mermaid.live.)
+
+### 4.2 · Visualización del grafo generado (comunidades coloreadas)
+
+**Pendiente — hueco explícito, no generado en este corte.** La idea (documentada
+aquí para quien la retome): correr `generarUsuariosSinteticos` con un `n` pequeño
+(300-500, para que el layout sea legible), exportar la lista de aristas junto con el
+índice de comunidad de cada usuario, y graficar con `networkx` + `matplotlib`
+(permitido por el enunciado §2 como "generación de gráficos estadísticos" — no es una
+estructura de datos del proyecto, es tooling externo de visualización). Confirmado
+en esta máquina que ambas librerías están disponibles (`python3 -c "import
+matplotlib, networkx"` no da error). Falta escribir el script
+(`scripts/visualizar_grafo.py`, no existe todavía) y correrlo para producir
+`output/grafo_sintetico.png`.
+
+> [ESPACIO PARA LA IMAGEN — pegar aquí `output/grafo_sintetico.png` una vez generada]
 
 ## 5 · Complejidad computacional
 
-*(Jose — J7, pendiente)*
+*(Jose)*
 
-> TODO Jose: complejidad de cada método público de `estructuras/` y de las operaciones
-> principales de `RedSocial` (ya hay anotaciones `@complejidad` sueltas en `main.cpp` y
-> `redSocial_io.cpp` para usar como base). Ver la tarea J7 en `PLAN-v2.pdf`.
+Tabla armada a partir de las anotaciones `@complejidad` que ya están junto a cada
+método en el código (`estructuras/*.h`, `main.cpp`, `redSocial_io.cpp`) — se citan
+tal cual, no son estimaciones nuevas.
+
+### 5.1 · Estructuras (`estructuras/`)
+
+| Estructura | Operación | Complejidad |
+|---|---|---|
+| `Lista<T>` | `agregarInicio`, `agregarFinal`, `extraerInicio` | O(1) |
+| `Lista<T>` | `eliminar(dato)`, `contiene(dato)` | O(n) |
+| `Lista<T>` | `obtener(indice)` | O(indice) — evitado en rutas críticas, ver §3.1 |
+| `TablaHash<K,V>` | `insertar`, `buscar`, `eliminar` | O(1) promedio; O(long. de cubeta) peor caso; amortizado O(1) con rehash incluido |
+| `TablaHash<K,V>` | `rehashear` (interno) | O(capacidad + n), pero amortizado O(1) por inserción (solo se dispara cada vez que `n` crece proporcional a la capacidad) |
+| `TablaHash<K,V>` | `obtenerTodosLosValores` | O(capacidad + n) |
+| `Grafo` | `agregarVertice`, `agregarArista`, `eliminarArista` | O(1) amortizado (búsquedas en `TablaHash` + `contiene`/`eliminar` sobre la lista de adyacencia de cada vértice, acotada por su grado) |
+| `Grafo` | `eliminarVertice` | O(grado del vértice) |
+| `Grafo` | `caminoMasCorto` (BFS) | O(usuarios + amistades) |
+| `ColaPrioridad<T>` | `insertar` | O(log n) amortizado |
+| `ColaPrioridad<T>` | `extraerMaximo` | O(log n) |
+| `Cola<T>` / `Pila<T>` | `encolar`/`desencolar`, `apilar`/`desapilar` | O(1) |
+
+### 5.2 · Operaciones de `RedSocial` (las 13 del enunciado)
+
+| # | Operación | Complejidad | Nota |
+|---|---|---|---|
+| 1 | `registrarUsuario` | O(1) amortizado | inserción en `TablaHash` + vértice en `Grafo` |
+| 2 | `eliminarUsuario` | O(grado del usuario) | recorre y actualiza la lista de amigos de cada vecino |
+| 3 | `buscarUsuarioPorId` | O(1) promedio | una búsqueda en `TablaHash` |
+| 4 | `crearPublicacion` | O(1) amortizado | `agregarFinal` en la lista de publicaciones |
+| 5 | `eliminarPublicacion` | O(n publicaciones) | recorre la lista buscando el ID (no hay índice por ID de publicación) |
+| 6 | `agregarAmistad` | O(1) amortizado | dos búsquedas en `TablaHash` + inserción en dos listas de adyacencia |
+| 7 | `eliminarAmistad` | O(grado del usuario) | `Lista::eliminar` en las dos listas de amigos |
+| 8 | `caminoAmistad` | O(usuarios + amistades) | BFS completo en el peor caso |
+| 9 | `amigosEnComun` | O(grado(u1) + grado(u2)) | recorre la lista de amigos de u1, consulta `contiene` en la de u2 |
+| 10 | `obtenerSugerenciasAmistad` | O(grado(u) · grado promedio de sus amigos) | dos niveles de vecinos, sin rankear por cantidad de amigos en común |
+| 11 | `obtenerPublicacionesDeUsuario` | O(n publicaciones) | recorre todas las publicaciones filtrando por autor (no hay índice usuario→publicaciones por objeto, aunque `Usuario.publicaciones` guarda los IDs) |
+| 12 | `obtenerTopUsuariosActivos` | O(n log n) | inserta los `n` usuarios en un heap y extrae los `k` mejores |
+| 13 | `obtenerPublicacionesConMasReacciones` | O(m log m) | igual que 12, sobre las `m` publicaciones |
+
+La complejidad de 9 y 10 depende del grado de los usuarios, no de `n` total — con el
+generador sintético (enlace preferencial, §6.1) unos pocos nodos "hub" concentran
+mucho más grado que el resto, así que estas dos operaciones pueden ser bastante más
+lentas sobre un hub que sobre un usuario típico, aunque ambas sigan siendo O(n) en el
+peor caso teórico (grado máximo acotado por n-1).
 
 ## 6 · Resultados experimentales
 
@@ -157,74 +371,244 @@ herramienta de medición que el enunciado permite).
 
 ### 6.3 · Resultados
 
-Corridos en esta máquina, `./app --bench`, semilla fija (reproducible):
+Recorridos originales (`f8b42f7`, antes del arreglo de T1) contra la corrida actual sobre
+el HEAD de hoy (`30b46a1`, `./app --bench`, misma semilla fija):
 
-| N | carga (ms) | búsqueda (µs, promedio) | BFS (ms) | sugerencias (ms) | top-K (ms) |
-|---:|---:|---:|---:|---:|---:|
-| 2 000 | 6.44 | 0.03 | 2.20 | 0.93 | 12.14 |
-| 4 000 | 10.99 | 0.03 | 3.02 | 0.92 | 41.26 |
-| 8 000 | 20.79 | 0.03 | 8.84 | 0.98 | 147.58 |
-| 16 000 | 44.91 | 0.04 | 20.99 | 1.15 | 891.77 |
-| 32 000 | 102.11 | 0.04 | 64.15 | 1.25 | no medido¹ |
-| 64 000 | 268.71 | 0.04 | 187.69 | 1.25 | no medido¹ |
-| 100 000 | 492.38 | 0.05 | 260.52 | 1.35 | no medido¹ |
-| 200 000 | 1 499.31 | 0.04 | 730.67 | 1.36 | no medido¹ |
-| 500 000 | 8 913.31 | 0.05 | 7 319.58 | 1.56 | no medido¹ |
+| N | carga (ms) | BFS (ms) | sugerencias (ms) | top-K (ms) |
+|---:|---:|---:|---:|---:|
+| 2 000 | 4.71 | 5.51 | 1.02 | **9.83** |
+| 4 000 | 8.80 | 5.55 | 0.75 | **17.95** |
+| 8 000 | 80.38¹ | 20.75 | 0.74 | **40.32** |
+| 16 000 | 208.69 | 37.07 | 0.87 | **43.94** |
+| 32 000 | 332.49 | 93.36 | 1.01 | no medido² |
+| 64 000 | 852.87 | 201.74 | 0.89 | no medido² |
+| 100 000 | 998.10 | 201.38 | 0.60 | no medido² |
+| 200 000 | 2 110.56 | 321.68 | 0.58 | no medido² |
+| 500 000 | 9 540.94 | 1 620.63 | 0.91 | no medido² |
 
-¹ Por encima de 20 000 usuarios el top-K no se mide: se colgaría la batería completa (ver
-§6.4, Defecto 2). El límite está en `LIMITE_MEDICION_TOPK` (`redSocial_io.cpp`).
+(columna "búsqueda" omitida: en las dos corridas midió sistemáticamente 0.00 ms —
+por debajo de la resolución que `<chrono>` puede capturar para una sola búsqueda en
+`TablaHash`, que es O(1) promedio; no es un dato útil así medido.)
 
-### 6.4 · Análisis — dos límites detectados
+¹ Este valor de carga rompe la tendencia (más que el doble de N=4 000 pero también más que
+N=16 000 más abajo); no se repite en el resto de la serie. Se deja tal cual en vez de
+descartarlo — es más probable que sea ruido del sistema durante la corrida (otro proceso
+compitiendo por CPU un instante) que un efecto real del código, pero no se verificó
+repitiendo la medición en esta pasada.
 
-**Top-K es O(n²), no O(n log n).** `RedSocial::obtenerTopUsuariosActivos` (`redSocial.cpp:67`)
-hace `for (i = 0; i < n; i++) todos.obtener(i)`: cada `obtener(i)` recorre la `Lista`
-enlazada desde la cabeza, así que el bucle completo es O(n²). En la tabla se ve: de
-2 000 a 16 000 usuarios (×8) el tiempo pasa de 12.1 ms a 891.8 ms (×73.5, no ×8, y cercano
-al ×64 que predice una curva cuadrática). Con esa curva, medir a 100 000 hubiera tardado
-varios minutos — por eso se acotó la medición en vez de reportar un número engañoso. Es el
-mismo defecto que el plan de trabajo documenta como "Defecto 2" y asigna a la tarea T1
-(Tercero): sustituir `obtener(i)` por el iterador de `Lista` en los seis sitios listados,
-entre ellos esta misma línea.
+² El límite de medición del top-K por encima de 20 000 (`LIMITE_MEDICION_TOPK`,
+`redSocial_io.cpp:17`) sigue en el script aunque el defecto que lo motivó ya se corrigió
+(ver §6.4) — quedó como tarea de limpieza pendiente del equipo, no se tocó al escribir este
+informe para no mezclar una edición de código con la redacción del documento.
 
-**La tabla hash sin rehash degrada la carga y el BFS a partir de cientos de miles.** La
-`TablaHash` tiene capacidad fija (10 007 cubetas por defecto, sin rehash — tarea J4 del
-plan): con 500 000 claves eso da en promedio ~50 elementos por cubeta, así que cada
-inserción y cada búsqueda de vecinos deja de ser O(1) para acercarse a O(50). El costo de
-un lookup aislado sigue siendo pequeño en términos absolutos (por eso la columna "búsqueda"
-casi no se mueve: de 0.03 µs a 2 000 usuarios a 0.05 µs a 500 000, una `buscarUsuarioPorId`
-suelta es barata aunque la cadena tenga 50 elementos), pero el efecto se acumula en las
-operaciones que hacen muchos lookups: de 100 000 a 200 000 usuarios (×2) la carga pasa de
-492 ms a 1 499 ms (×3.0) y el BFS de 261 ms a 731 ms (×2.8); de 200 000 a 500 000 (×2.5) la
-carga sube a 8 913 ms (×5.9) y el BFS a 7 320 ms (×10.0) — la degradación se acelera con N
-en ambas, consistente con una tabla que ya no reparte bien sus claves. No se implementa el
-rehash aquí (no es tarea de C4), pero el efecto es medible y consistente con la proyección
-que hace el plan de trabajo en su §7 sobre la misma causa (capacidad fija sin rehash).
+### 6.4 · Análisis
+
+**Top-K ya no es O(n²) — corregido.** La versión anterior de este informe documentaba un
+defecto real: `obtenerTopUsuariosActivos` hacía `for (i=0; i<n; i++) todos.obtener(i)`, y
+como `Lista::obtener(i)` recorre desde la cabeza, el bucle completo era O(n²) (medido
+entonces: de 2 000 a 16 000 usuarios, ×73.5 en vez de ×8). El commit `fb14ff7`
+("quitar obtener(i) en bucles") lo corrigió reemplazando ese patrón por el iterador de
+`Lista` (`for (auto& u : todos)`) en los cinco sitios donde aparecía dentro de
+`RedSocial` (`obtenerTopUsuariosActivos`, `amigosEnComun`, `obtenerSugerenciasAmistad`,
+`eliminarPublicacion`, `darLike`). El efecto es visible en la tabla de §6.3: para N=16 000,
+top-K bajó de 891.8 ms a 43.9 ms — veinte veces más rápido — y ahora escala de forma mucho
+más plana entre 2 000 y 16 000 (×8 en N produce ×4.5 en tiempo, no ×73). Sigue habiendo
+`obtener(i)` en bucle dentro de `main.cpp` para imprimir resultados (por ejemplo
+`opcionSugerenciasAmistad`, `opcionAmigosEnComun`), pero esos recorren listas de
+resultado acotadas por el grado del usuario o el tamaño de la respuesta, no por N total —
+no es el mismo defecto.
+
+**La explicación anterior sobre "tabla hash sin rehash" era incorrecta — corregido aquí.**
+Esta sección afirmaba antes que la degradación de carga y BFS entre 100 000 y 500 000
+usuarios se debía a que `TablaHash` no hacía rehash. Es falso: el rehash automático a
+factor de carga 0.75 (`tablaHash.h:41-56`) se implementó en el commit `4637759`
+("j4 terminado rehash hecho"), que es *anterior* a los commits que escribieron esa
+sección — la afirmación estaba desactualizada desde que se escribió, no es que el código
+haya cambiado después. Con rehash, `TablaHash::insertar`/`buscar` deberían mantenerse en
+O(1) promedio incluso a 500 000 claves.
+
+La degradación en carga y BFS de 100 000 a 500 000 (carga: ×9.6 para ×5 en N; BFS: ×8.0
+para ×5 en N — ambas superlineales) sigue siendo real y medida, pero la causa correcta no
+se aisló en este corte. La hipótesis más consistente con el diseño del generador
+sintético (§6.1, enlace preferencial tipo Barabási–Albert): unos pocos vértices "hub"
+concentran mucho más grado que el resto a medida que la red crece, y tanto
+`Grafo::agregarArista` (que hace `listaU->contiene(v)` — O(grado(u)) — antes de insertar
+cada arista nueva, para no duplicarla) como el BFS (que recorre la lista de adyacencia
+completa de cada vértice que visita) pagan ese costo O(grado) en los hubs. Es una
+hipótesis, no un hecho verificado: confirmarla requeriría instrumentar el código para
+medir el grado máximo a distintos N, que es trabajo de código y queda fuera del alcance
+de escribir este informe.
 
 ## 7 · Capturas
 
-*(Cristhian — C5, pendiente)*
+*(Cristhian)*
 
-> TODO: capturas de pantalla del menú (`./app`) ejecutando al menos: registrar usuario,
-> buscar usuario, camino de amistad, amigos en común, sugerencias y usuarios más activos —
-> más una corrida de `./app --bench` mostrando la tabla de la §6.3. El enunciado no evalúa
-> el aspecto visual, así que basta con capturas de la terminal.
+El enunciado aclara que el aspecto visual no se evalúa, así que estas son capturas de
+**terminal real** (no imágenes de pantalla), tomadas ejecutando `./app` compilado desde
+el HEAD actual (`g++ -std=c++17 -O2 -Wall main.cpp red/*.cpp -o app`, compila sin
+warnings) con una entrada que recorre las 13 opciones del menú en orden. Salida real,
+recortada donde el resultado es muy largo (se indica el recorte).
+
+**Carga inicial del dataset:**
+```
+Cargando data/amistades_4039n_88234r.txt ...
+Listo: 4039 usuarios cargados.
+Cargando data/publicaciones_interaciiones.csv ...
+Listo: 20000 publicaciones cargadas.
+```
+
+**1) Registrar usuario** (ID 99999, usuario nuevo para esta demo):
+```
+Usuario 99999 registrado.
+```
+
+**6) Agregar amigo** (99999 <-> 0):
+```
+Amistad 99999 <-> 0 creada.
+```
+
+**8) Camino de amistad** (origen 99999, destino 0 — se acaban de hacer amigos):
+```
+Camino (1 saltos): 99999 -> 0
+```
+
+**9) Amigos en común** (entre los usuarios 0 y 1, ambos del dataset SNAP):
+```
+Amigos en comun (16): 48 53 54 73 88 92 119 126 133 194 236 280 299 315 322 346
+```
+
+**10) Sugerencias de amistad** (usuario 0 — salida real, truncada aquí por espacio;
+el conteo real es el que reporta el programa):
+```
+Sugerencias (1171): 348 414 428 1684 1912 2814 2838 2885 3003 3173 3290 353 363 366
+376 389 420 475 483 484 517 526 538 563 566 580 596 601 606 629 637 641 649 651 896
+897 898 899 900 901 902 903 904 905 906 907 908 909 910 911 912 913 [...] 2740 427
+464 549 351 364 393 399 441 476 501 564
+```
+(1171 sugerencias es esperable: el usuario 0 en el dataset SNAP real de Facebook tiene
+grado alto, así que sus amigos-de-amigos son muchos. Nótese que la lista sale sin
+rankear por cantidad de amigos en común — es exactamente la limitación de la
+operación 10 que señala el §5.2.)
+
+**12) Usuarios más activos** (top 5, por publicaciones):
+```
+Top 5 usuarios por publicaciones:
+    1) ID 0        User_0                   publicaciones: 5
+    2) ID 1        User_1                   publicaciones: 5
+    3) ID 3        User_3                   publicaciones: 5
+    4) ID 7        User_7                   publicaciones: 5
+    5) ID 15       User_15                  publicaciones: 5
+```
+
+**4) Crear publicación** (ID 999001, autor 99999):
+```
+Publicacion 999001 creada.
+```
+
+**11) Mostrar publicaciones de un usuario** (usuario 13, del dataset de Kaggle):
+```
+Publicaciones de 13 (5):
+    1) ID 14       fecha 2024-05-06   likes: 821  Identify some discuss test pass
+       form finally before about admit budget set treatment inside. Make star one
+       interesting.
+    2) ID 4053     fecha 2024-04-23   likes: 2531 Sometimes live dream bill across
+       we culture cut rock movement there development radio station yet. Night
+       today interesting claim process.
+    3) ID 8092     fecha 2024-11-19   likes: 4914 Foot its reflect continue various
+       myself blood our government letter mission produce. Factor successful full
+       land easy point.
+    4) ID 12131    fecha 2024-06-27   likes: 1725 Produce teacher mind pretty start
+       wrong computer husband democratic whatever animal. Form sure father even.
+    5) ID 16170    fecha 2025-01-24   likes: 295  Fly present whole deep audience
+       sing former Mr off check. Idea style after.
+```
+
+**13) Publicaciones con más reacciones** (top 5, por likes):
+```
+Top 5 publicaciones por likes:
+    1) ID 2265     autor 2264     likes: 5178
+    2) ID 9292     autor 1213     likes: 5142
+    3) ID 18359    autor 2202     likes: 5136
+    4) ID 14030    autor 1912     likes: 5130
+    5) ID 5708     autor 1668     likes: 5128
+```
+
+**5) Eliminar publicación** (999001, la creada más arriba):
+```
+Publicacion 999001 eliminada.
+```
+
+**7) Eliminar amigo** (99999 <-> 0):
+```
+Amistad 99999 <-> 0 eliminada.
+```
+
+**2) Eliminar usuario** (99999) **seguido de 3) Buscar usuario** (99999, confirma que
+la eliminación no dejó rastro — incluyendo el grafo, ver §3.3 sobre `eliminarVertice`):
+```
+Usuario 99999 eliminado.
+...
+No existe un usuario con ID 99999.
+```
+
+**`./app --bench`** — batería completa de escalado, salida real (números iguales a
+la tabla del §6.3):
+```
+Bateria de escalado: 9 tamanos de N
+  N = 2000     ... carga=    4.71ms  bfs=   5.51ms  sugerencias= 1.0226ms  topk=medido
+  N = 4000     ... carga=    8.80ms  bfs=   5.55ms  sugerencias= 0.7477ms  topk=medido
+  N = 8000     ... carga=   80.38ms  bfs=  20.75ms  sugerencias= 0.7448ms  topk=medido
+  N = 16000    ... carga=  208.69ms  bfs=  37.07ms  sugerencias= 0.8656ms  topk=medido
+  N = 32000    ... carga=  332.49ms  bfs=  93.36ms  sugerencias= 1.0062ms  topk=no medido
+  N = 64000    ... carga=  852.87ms  bfs= 201.74ms  sugerencias= 0.8904ms  topk=no medido
+  N = 100000   ... carga=  998.10ms  bfs= 201.38ms  sugerencias= 0.5992ms  topk=no medido
+  N = 200000   ... carga= 2110.56ms  bfs= 321.68ms  sugerencias= 0.5827ms  topk=no medido
+  N = 500000   ... carga= 9540.94ms  bfs=1620.63ms  sugerencias= 0.9082ms  topk=no medido
+
+Mediciones exportadas a output/mediciones.csv
+```
 
 ## 8 · Conclusiones
 
-*(Los tres — borrador de Cristhian, falta revisión conjunta)*
+*(Los tres)*
 
 El sistema cumple el núcleo del enunciado sin usar STL: las 13 funcionalidades tienen
-código funcional y 11 ya están cableadas al menú (las 2 restantes, mostrar publicaciones de
-un usuario y publicaciones con más reacciones, son la tarea T2/T3 del plan). El generador
-sintético con enlace preferencial permite demostrar y medir el sistema con cientos de miles
-de usuarios (E6), muy por encima de los 4 039 del dataset público, sin depender de datos
-externos para escalar.
+código funcional y las 13 están cableadas al menú (`main.cpp`, verificado en §7 — las
+últimas dos, mostrar publicaciones de un usuario y publicaciones con más reacciones,
+se conectaron en los commits `381b263` y `30b46a1`, después de la versión anterior de
+este informe). El generador sintético con enlace preferencial permite demostrar y medir
+el sistema con cientos de miles de usuarios (E6), muy por encima de los 4 039 del dataset
+público, sin depender de datos externos para escalar — aunque el `main()` de producción
+sigue arrancando por defecto con el dataset SNAP de 4 039, no con el generador: para que
+la sustentación muestre E6 de verdad hace falta arrancar explícitamente a mayor escala
+(el modo `--bench` sí lo hace, pero no pasa por el menú de las 13 operaciones).
 
-Las mediciones de la §6 muestran, con números y no solo con intuición, los dos límites de
-la implementación actual: el top-K cuadrático (Defecto 2 / T1) y la tabla hash sin rehash
-(J4). Ambos son arreglos acotados y ya están identificados en el plan de trabajo; documentar
-la degradación en vez de ocultarla es, según el propio enunciado, parte del "análisis de
-rendimiento" que se evalúa (E10).
+Los dos límites que documentaba la versión anterior de este informe (top-K cuadrático y
+"tabla hash sin rehash") ya no describen el estado real del código: el primero se corrigió
+(commit `fb14ff7`, verificado en §6.4 con números antes/después) y el segundo nunca fue la
+causa correcta (el rehash ya existía cuando se tomaron esas mediciones — corregido también
+en §6.4). Documentar la corrección, y no solo el hallazgo original, es parte del mismo
+"análisis de rendimiento" que pide el enunciado (E10): un informe que se queda con el
+primer diagnóstico después de que el código cambió deja de ser confiable.
 
-> TODO equipo: ampliar esta sección tras cerrar J4 (rehash) y T1 (quitar `obtener(i)` en
-> bucle) — repetir la batería de §6 y contrastar antes/después.
+Lo que sigue genuinamente pendiente, verificado hoy contra el código:
+
+- **Campo `Usuario::seguidores` muerto.** `incrementarSeguidores()` existe
+  (`usuario.cpp:58-60`) pero no la llama nadie en todo el proyecto — el campo vale 0
+  siempre. El enunciado pide que `Usuario` "contenga" cantidad de seguidores (E4); el
+  campo estructuralmente está, pero nunca se puebla.
+- **`Comentario` y `Publicacion::agregarComentario` sin usar.** La clase existe, el
+  campo `Lista<Comentario> comentarios` existe en `Publicacion` (E4 lo pide), pero no
+  hay ninguna llamada a `agregarComentario` en todo el proyecto: no hay opción de menú
+  para comentar ni se poblan comentarios al cargar los datasets. La lista de
+  comentarios de toda publicación está vacía en la práctica.
+- **Límite artificial de medición del top-K** (`LIMITE_MEDICION_TOPK = 20000`,
+  `redSocial_io.cpp:17`) sigue en el script de bench aunque el defecto que lo motivó
+  ya se corrigió — con el arreglo de `fb14ff7`, medir top-K hasta 500 000 debería ser
+  viable y probablemente rápido; nadie subió el límite todavía.
+- **Visualización del grafo con comunidades** (§4.2) no se generó — es el único hueco
+  de este informe que sigue siendo un placeholder explícito en vez de contenido real.
+
+Ninguno de estos cuatro puntos es difícil de cerrar comparado con lo que ya se resolvió
+(rehash, defecto O(n²), las 13 operaciones cableadas); quedan como la lista de trabajo
+concreta para la entrega final, no como incertidumbre sobre qué falta.
