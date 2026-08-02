@@ -1,5 +1,5 @@
 #pragma once
-#include "estructuras/lista.h"
+#include "lista.h"
 
 template <typename K, typename V>
 class TablaHash {
