@@ -1,6 +1,7 @@
 #include "redSocial.h"
 #include <cstdio>
 #include <cstdlib>
+#include <chrono>
 
 /*
  * Generador sintetico, enlace preferencial y medicion de tiempos.
@@ -10,6 +11,16 @@
  */
 
 namespace {
+
+// Por encima de este N, obtenerTopUsuariosActivos (O(n^2) por el Defecto 2
+// del plan) tarda minutos en vez de milisegundos: no se mide, se reporta -1.
+const int LIMITE_MEDICION_TOPK = 20000;
+
+using Reloj = std::chrono::steady_clock;
+
+double milisegundosDesde(Reloj::time_point inicio) {
+    return std::chrono::duration<double, std::milli>(Reloj::now() - inicio).count();
+}
 
 // Arreglo dinamico de enteros (no es una "estructura del proyecto": es el
 // truco clasico de enlace preferencial, un pool donde cada usuario aparece
@@ -133,4 +144,60 @@ void RedSocial::generarUsuariosSinteticos(int cantidadUsuarios, int enlacesPorUs
     }
 
     delete[] pools;
+}
+
+/*
+ * Arma una RedSocial sintetica de tamano n y cronometra, con <chrono>, sus
+ * operaciones principales: carga (generacion), insercion, busqueda, BFS
+ * (camino de amistad), sugerencias y top-K. Pensada para correrse para
+ * varios N y volcar la serie con exportarMedicionesCSV (bateria de escalado,
+ * ver main.cpp --bench).
+ */
+MedicionTiempos RedSocial::medirOperaciones(int n, int enlacesPorUsuario, int usuariosPorComunidad) {
+    MedicionTiempos m{};
+    m.n = n;
+
+    RedSocial red;
+
+    Reloj::time_point t0 = Reloj::now();
+    red.generarUsuariosSinteticos(n, enlacesPorUsuario, usuariosPorComunidad);
+    m.msCarga = milisegundosDesde(t0);
+
+    t0 = Reloj::now();
+    red.registrarUsuario(n, "Bench_nuevo", "bench@red.local", "2026-01-01");
+    for (int k = 0; k < enlacesPorUsuario && k < n; k++) {
+        red.agregarAmistad(n, k);
+    }
+    m.msInsercion = milisegundosDesde(t0);
+
+    int repeticionesBusqueda = (n < 1000) ? (n > 0 ? n : 1) : 1000;
+    t0 = Reloj::now();
+    for (int i = 0; i < repeticionesBusqueda; i++) {
+        red.buscarUsuarioPorId(i);
+    }
+    m.msBusqueda = milisegundosDesde(t0) / repeticionesBusqueda;
+
+    t0 = Reloj::now();
+    red.caminoAmistad(0, n > 1 ? n - 1 : 0);
+    m.msBFS = milisegundosDesde(t0);
+
+    t0 = Reloj::now();
+    red.obtenerSugerenciasAmistad(0);
+    m.msSugerencias = milisegundosDesde(t0);
+
+    // obtenerTopUsuariosActivos hace, para cada usuario, todos.obtener(i)
+    // desde la cabeza de una Lista enlazada (Defecto 2 del plan de trabajo,
+    // redSocial.cpp:67): el bucle entero es O(n^2). No es tarea de C4
+    // arreglarlo (le toca a T1), pero medirlo sin limite colgaria la
+    // bateria de escalado a partir de unos pocos miles de usuarios. Se
+    // acota la medicion y se deja constancia del limite en el CSV con -1.
+    if (n <= LIMITE_MEDICION_TOPK) {
+        t0 = Reloj::now();
+        red.obtenerTopUsuariosActivos(10);
+        m.msTopK = milisegundosDesde(t0);
+    } else {
+        m.msTopK = -1.0;
+    }
+
+    return m;
 }
