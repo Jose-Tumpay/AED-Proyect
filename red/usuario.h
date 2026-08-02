@@ -11,6 +11,7 @@ private:
     
     // nuevos 
     Lista<int> amigos;       
+    Lista<int> publicaciones;
     int seguidores;          
     int reacciones;          
     void copiarTexto(char* destino, const char* origen, int tamMax);
@@ -30,9 +31,10 @@ public:
     int getReacciones() const;
     int getContadorAmigos() const;  
     const Lista<int>& getAmigos() const;
+    const Lista<int>& getPublicaciones() const;
 
     // metodos modificadores
-    void incrementarPublicaciones();
+    void agregarPublicacion(int idPub);
     void agregarAmigo(int idAmigo);
     void incrementarSeguidores();
     void incrementarReacciones(int cantidad = 1);

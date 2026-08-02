@@ -53,6 +53,15 @@ int Publicacion::getShares() const {
     return shares;
 }
 
+const Lista<Comentario>& Publicacion::getComentarios() const {
+    return comentarios;
+}
+
+void Publicacion::agregarComentario(const Comentario& c) {
+    comentarios.agregarFinal(c);
+    comments++;
+}
+
 bool Publicacion::operator>(const Publicacion& otra) const {
     return likes > otra.likes;
 }

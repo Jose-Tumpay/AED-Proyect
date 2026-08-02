@@ -1,4 +1,6 @@
 #pragma once
+#include "comentario.h"
+#include "../estructuras/lista.h"
 
 class Publicacion {
 private:
@@ -9,6 +11,7 @@ private:
     int likes;
     int comments;
     int shares;
+    Lista<Comentario> comentarios;
 
     void copiarTexto(char* destino, const char* origen, int tamMax);
 
@@ -23,6 +26,9 @@ public:
     int getLikes() const;
     int getComments() const;
     int getShares() const;
+    const Lista<Comentario>& getComentarios() const;
+
+    void agregarComentario(const Comentario& c);
 
     // Métodos const con nombres de parámetro idénticos a la implementación
     bool operator>(const Publicacion& otra) const;

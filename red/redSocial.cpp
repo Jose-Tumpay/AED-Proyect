@@ -47,7 +47,7 @@ void RedSocial::crearPublicacion(int idPub, int idUsuario, const char* contenido
 
     Usuario* u = usuariosPorId.buscar(idUsuario);
     if (u != nullptr) {
-        u->incrementarPublicaciones();
+        u->agregarPublicacion(idPub);
     }
 }
 

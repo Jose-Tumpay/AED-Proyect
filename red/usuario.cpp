@@ -41,9 +41,14 @@ const Lista<int>& Usuario::getAmigos() const {
     return amigos; 
 }
 
+const Lista<int>& Usuario::getPublicaciones() const {
+    return publicaciones;
+}
 
-void Usuario::incrementarPublicaciones() { 
-    contadorPublicaciones++; 
+
+void Usuario::agregarPublicacion(int idPub) {
+    publicaciones.agregarFinal(idPub);
+    contadorPublicaciones++;
 }
 
 void Usuario::agregarAmigo(int idAmigo) { 
