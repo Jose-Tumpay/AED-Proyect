@@ -14,6 +14,7 @@
  */
 
 static const char* RUTA_SNAP = "data/amistades_4039n_88234r.txt";
+static const char* RUTA_PUBLICACIONES_CSV = "data/publicaciones_interaciiones.csv";
 
 /*
  * Lee una linea completa y la interpreta como entero.
@@ -280,6 +281,13 @@ int main() {
         printf("Listo: %d usuarios cargados.\n", red.obtenerNumUsuarios());
     } else {
         printf("Aviso: no se pudo cargar el dataset. Se arranca vacio.\n");
+    }
+
+    printf("Cargando %s ...\n", RUTA_PUBLICACIONES_CSV);
+    if (red.cargarPublicacionesCSV(RUTA_PUBLICACIONES_CSV)) {
+        printf("Listo: %d publicaciones cargadas.\n", red.obtenerNumPublicaciones());
+    } else {
+        printf("Aviso: no se pudieron cargar publicaciones.\n");
     }
 
     int opcion = -1;
