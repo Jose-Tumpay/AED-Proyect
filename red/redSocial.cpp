@@ -265,7 +265,6 @@ bool RedSocial::eliminarUsuario(int idUsuario) {
         return false;
     }
 
-    // 1. Quitar este ID de la lista de amigos de todos sus amigos directos
     const Lista<int>& susAmigos = u->getAmigos();
     for (int i = 0; i < susAmigos.obtenerTamano(); i++) {
         int idAmigo = susAmigos.obtener(i);
@@ -275,7 +274,8 @@ bool RedSocial::eliminarUsuario(int idUsuario) {
         }
     }
 
-    // 2. Eliminar de la Tabla Hash principal
+    grafoAmistades.eliminarVertice(idUsuario);
+
     usuariosPorId.eliminar(idUsuario);
     totalUsuarios--;
 

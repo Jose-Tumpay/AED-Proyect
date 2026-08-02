@@ -37,13 +37,25 @@ public:
         if (listaV) listaV->eliminar(u);
     }
 
+    void eliminarVertice(int u) {
+        Lista<int>* listaU = adyacencia.buscar(u);
+        if (!listaU) return;
+
+        for (int vecino : *listaU) {
+            Lista<int>* listaVecino = adyacencia.buscar(vecino);
+            if (listaVecino) listaVecino->eliminar(u);
+        }
+
+        adyacencia.eliminar(u);
+    }
+
     Lista<int> obtenerVecinos(int u) {
         Lista<int>* lista = adyacencia.buscar(u);
         if (lista) return *lista;
         return Lista<int>();
     }
 
-    // Busqueda en anchura (BFS) para hallar la ruta mas corta
+    // bfs para la rutamas corta entre dos vertices
     Lista<int> caminoMasCorto(int origen, int destino) {
         TablaHash<int, int> padre;
         TablaHash<int, bool> visitado;
