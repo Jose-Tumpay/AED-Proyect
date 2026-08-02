@@ -29,7 +29,7 @@ void RedSocial::crearPublicacion(int idPub, int idUsuario, const char* contenido
     snprintf(pIdStr, sizeof(pIdStr), "%d", idPub);
     snprintf(uIdStr, sizeof(uIdStr), "%d", idUsuario);
 
-    // Pasa los 7 parámetros requeridos: pId, uId, contenido, fecha, likes, comments, shares
+    // prepara para los 7 parámetros de Publicacion: pId, uId, content, date, likes, comments, shares
     Publicacion pub(pIdStr, uIdStr, contenido, fecha, likes, 0, 0);
     publicaciones.agregarFinal(pub);
     totalPublicaciones++;
@@ -50,6 +50,7 @@ Lista<int> RedSocial::caminoAmistad(int idOrigen, int idDestino) {
 
 Lista<Usuario> RedSocial::obtenerTopUsuariosActivos(int topK) {
     ColaPrioridad<Usuario> maxHeap;
+
     Lista<Usuario> todos = usuariosPorId.obtenerTodosLosValores();
 
     for (int i = 0; i < todos.obtenerTamano(); i++) {
@@ -70,7 +71,7 @@ Lista<Usuario> RedSocial::obtenerTopUsuariosActivos(int topK) {
 bool RedSocial::cargarGrafoSNAP(const char* rutaArchivo) {
     FILE* f = fopen(rutaArchivo, "r");
     if (!f) {
-        printf("Error al abrir archivo de amistades\n");
+        printf("Error al abrir archivo de amistades: %s\n", rutaArchivo);
         return false;
     }
 
@@ -101,28 +102,45 @@ bool RedSocial::cargarGrafoSNAP(const char* rutaArchivo) {
     return true;
 }
 
+// cargar el CSV 
 bool RedSocial::cargarPublicacionesCSV(const char* rutaArchivo) {
     FILE* f = fopen(rutaArchivo, "r");
     if (!f) {
-        printf("Error al abrir archivo de publicaciones\n");
+        printf("Error al abrir archivo de publicaciones: %s\n", rutaArchivo);
         return false;
     }
 
     char buffer[1024];
-    // Saltar cabecera del CSV
+    // saltar la cabecera del CSV
     if (!fgets(buffer, sizeof(buffer), f)) {
         fclose(f);
         return false;
     }
 
     int idPub = 1;
-    while (fgets(buffer, sizeof(buffer), f)) {
-        int idUsuario, likes;
-        char contenido[256];
-        char fecha[16];
+    char postId[40], userId[40], userName[64], gender[16];
+    int age, followers, following;
+    char creationDate[16], isVerified[10], location[64], topic[32], content[256];
+    int contentLength;
+    char hashtags[64], hasMedia[10], postDate[16], device[32], language[10];
+    int likes, comments, shares;
+    float engagementRate;
 
-        if (sscanf(buffer, "%d,%255[^,],%15[^,],%d", &idUsuario, contenido, fecha, &likes) >= 3) {
-            crearPublicacion(idPub++, idUsuario, contenido, fecha, likes);
+    const char* formato = 
+        "%39[^,],%39[^,],%63[^,],%15[^,],%d,%d,%d,%15[^,],%9[^,],%63[^,],%31[^,],"
+        "%255[^,],%d,%63[^,],%9[^,],%15[^,],%31[^,],%9[^,],%d,%d,%d,%f\n";
+
+    while (fgets(buffer, sizeof(buffer), f)) {
+        if (sscanf(buffer, formato,
+            postId, userId, userName, gender, &age, &followers, &following,
+            creationDate, isVerified, location, topic, content, &contentLength,
+            hashtags, hasMedia, postDate, device, language, &likes, &comments, &shares, &engagementRate) >= 19) {
+            
+            // mapaear laspublicaciones
+            int idUsuarioAsignado = (idPub - 1) % (totalUsuarios > 0 ? totalUsuarios : 4039);
+
+            crearPublicacion(idPub, idUsuarioAsignado, content, postDate, likes);
+            idPub++;
         }
     }
 

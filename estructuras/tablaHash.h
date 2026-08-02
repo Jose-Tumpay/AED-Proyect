@@ -16,13 +16,13 @@ private:
     int capacidad;
     int tamano;
 
-    // Hash para enteros (IDs numéricos)
+    // funcion hash para enteros
     int funcionHash(int clave) const {
         int h = clave % capacidad;
         return h < 0 ? h + capacidad : h;
     }
 
-    // Hash estilo DJB2 para cadenas de caracteres C-style (char*)
+    // fucnion hashpara strings
     int funcionHash(const char* clave) const {
         if (!clave) return 0;
         unsigned long hash = 5381;
@@ -80,7 +80,7 @@ public:
 
     int obtenerTamano() const { return tamano; }
 
-    // Reutiliza los iteradores de la Lista propia para evitar lidiar con Nodos
+    // reusar el iterador para tener los valores de la tabla hash
     Lista<V> obtenerTodosLosValores() const {
         Lista<V> resultado;
         for (int i = 0; i < capacidad; i++) {
