@@ -69,8 +69,8 @@ Lista<Usuario> RedSocial::obtenerTopUsuariosActivos(int topK) {
 
     Lista<Usuario> todos = usuariosPorId.obtenerTodosLosValores();
 
-    for (int i = 0; i < todos.obtenerTamano(); i++) {
-        maxHeap.insertar(todos.obtener(i));
+    for (auto& u : todos) {
+        maxHeap.insertar(u);
     }
 
     Lista<Usuario> topUsuarios;
@@ -97,8 +97,7 @@ Lista<int> RedSocial::amigosEnComun(int id1, int id2) {
     const Lista<int>& amigos1 = u1->getAmigos();
     const Lista<int>& amigos2 = u2->getAmigos();
 
-    for (int i = 0; i < amigos1.obtenerTamano(); i++) {
-        int idAmigo = amigos1.obtener(i);
+    for (int idAmigo : amigos1) {
         if (amigos2.contiene(idAmigo)) {
             enComun.agregarFinal(idAmigo);
         }
@@ -118,20 +117,17 @@ Lista<int> RedSocial::obtenerSugerenciasAmistad(int idUsuario) {
     const Lista<int>& misAmigos = u->getAmigos();
 
     // ir por cada amigo y luego por sus amigos
-    for (int i = 0; i < misAmigos.obtenerTamano(); i++) {
-        int idAmigo = misAmigos.obtener(i);
+    for (int idAmigo : misAmigos) {
         Usuario* amigo = usuariosPorId.buscar(idAmigo);
 
         if (amigo != nullptr) {
             const Lista<int>& amigosDelAmigo = amigo->getAmigos();
 
             // ir por cada amigo del amigo y validar si es una sugerencia
-            for (int j = 0; j < amigosDelAmigo.obtenerTamano(); j++) {
-                int candidato = amigosDelAmigo.obtener(j);
-
+            for (int candidato : amigosDelAmigo) {
                 // verificar qeu no sea
-                if (candidato != idUsuario && 
-                    !misAmigos.contiene(candidato) && 
+                if (candidato != idUsuario &&
+                    !misAmigos.contiene(candidato) &&
                     !sugerencias.contiene(candidato)) {
                     sugerencias.agregarFinal(candidato);
                 }
@@ -242,9 +238,9 @@ bool RedSocial::eliminarPublicacion(int idPub) {
     char pIdStr[40];
     snprintf(pIdStr, sizeof(pIdStr), "%d", idPub);
 
-    for (int i = 0; i < publicaciones.obtenerTamano(); i++) {
-        const char* actualId = publicaciones.obtener(i).getPostId();
-        
+    for (auto& pub : publicaciones) {
+        const char* actualId = pub.getPostId();
+
         bool iguales = true;
         int j = 0;
         while (actualId[j] != '\0' || pIdStr[j] != '\0') {
@@ -256,7 +252,7 @@ bool RedSocial::eliminarPublicacion(int idPub) {
         }
 
         if (iguales) {
-            publicaciones.eliminar(publicaciones.obtener(i));
+            publicaciones.eliminar(pub);
             totalPublicaciones--;
             return true;
         }
@@ -271,8 +267,7 @@ bool RedSocial::eliminarUsuario(int idUsuario) {
     }
 
     const Lista<int>& susAmigos = u->getAmigos();
-    for (int i = 0; i < susAmigos.obtenerTamano(); i++) {
-        int idAmigo = susAmigos.obtener(i);
+    for (int idAmigo : susAmigos) {
         Usuario* amigo = usuariosPorId.buscar(idAmigo);
         if (amigo != nullptr) {
             amigo->eliminarAmigo(idUsuario);
@@ -291,8 +286,7 @@ bool RedSocial::darLike(int idPub) {
     char pIdStr[40];
     snprintf(pIdStr, sizeof(pIdStr), "%d", idPub);
 
-    for (int i = 0; i < publicaciones.obtenerTamano(); i++) {
-        Publicacion& pub = publicaciones.obtener(i);
+    for (auto& pub : publicaciones) {
         if (strcmp(pub.getPostId(), pIdStr) == 0) {
             pub.agregarLike();
 
