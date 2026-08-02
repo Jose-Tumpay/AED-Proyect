@@ -1,7 +1,7 @@
 #pragma once
 #include "TablaHash.h"
-#include "Lista.h"
-#include "Cola.h"
+#include "lista.h"
+#include "cola.h"
 
 class Grafo {
 private:

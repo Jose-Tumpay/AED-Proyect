@@ -3,8 +3,8 @@
 #include "../estructuras/Grafo.h"
 #include "../estructuras/ColaPrioridad.h"
 #include "../estructuras/Lista.h"
-#include "Usuario.h"
-#include "Publicacion.h"
+#include "usuario.h"
+#include "publicacion.h"
 
 class RedSocial {
 private:

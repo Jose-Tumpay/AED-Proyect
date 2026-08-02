@@ -1,7 +1,5 @@
 #pragma once
-#include "Lista.h"
-#include <string>
-#include <stdexcept>
+#include "lista.h"
 
 template <typename K, typename V>
 class TablaHash {
@@ -18,15 +16,20 @@ private:
     int capacidad;
     int tamano;
 
+    // Hash para enteros (IDs numéricos)
     int funcionHash(int clave) const {
         int h = clave % capacidad;
         return h < 0 ? h + capacidad : h;
     }
 
-    int funcionHash(const std::string& clave) const {
+    // Hash estilo DJB2 para cadenas de caracteres C-style (char*)
+    int funcionHash(const char* clave) const {
+        if (!clave) return 0;
         unsigned long hash = 5381;
-        for (char c : clave) {
-            hash = ((hash << 5) + hash) + c;
+        int i = 0;
+        while (clave[i] != '\0') {
+            hash = ((hash << 5) + hash) + clave[i];
+            i++;
         }
         return hash % capacidad;
     }
@@ -76,4 +79,15 @@ public:
     }
 
     int obtenerTamano() const { return tamano; }
+
+    // Reutiliza los iteradores de la Lista propia para evitar lidiar con Nodos
+    Lista<V> obtenerTodosLosValores() const {
+        Lista<V> resultado;
+        for (int i = 0; i < capacidad; i++) {
+            for (const Par& p : tabla[i]) {
+                resultado.agregarFinal(p.valor);
+            }
+        }
+        return resultado;
+    }
 };

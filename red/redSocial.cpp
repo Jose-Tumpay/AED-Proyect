@@ -1,49 +1,131 @@
-#pragma once
+#include "RedSocial.h"
+#include <cstdio>
 
-class Publicacion {
-private:
-    char postId[40];
-    char userId[40];
-    char postContent[256];
-    char postDate[16];
-    int likes;
-    int comments;
-    int shares;
+RedSocial::RedSocial() {
+    totalUsuarios = 0;
+    totalPublicaciones = 0;
+}
 
-    void copiarTexto(char* destino, const char* origen, int tamMax) {
-        if (!destino || !origen || tamMax <= 0) return;
-        int i = 0;
-        while (origen[i] != '\0' && i < tamMax - 1) {
-            destino[i] = origen[i];
-            i++;
+bool RedSocial::registrarUsuario(int id, const char* nombre, const char* email, const char* fecha) {
+    if (usuariosPorId.buscar(id) != nullptr) {
+        return false;
+    }
+
+    Usuario nuevo(id, nombre, email, fecha);
+    usuariosPorId.insertar(id, nuevo);
+    grafoAmistades.agregarVertice(id);
+    totalUsuarios++;
+    return true;
+}
+
+void RedSocial::agregarAmistad(int id1, int id2) {
+    grafoAmistades.agregarArista(id1, id2);
+}
+
+void RedSocial::crearPublicacion(int idPub, int idUsuario, const char* contenido, const char* fecha, int likes) {
+    char pIdStr[40];
+    char uIdStr[40];
+
+    snprintf(pIdStr, sizeof(pIdStr), "%d", idPub);
+    snprintf(uIdStr, sizeof(uIdStr), "%d", idUsuario);
+
+    // Pasa los 7 parámetros requeridos: pId, uId, contenido, fecha, likes, comments, shares
+    Publicacion pub(pIdStr, uIdStr, contenido, fecha, likes, 0, 0);
+    publicaciones.agregarFinal(pub);
+    totalPublicaciones++;
+
+    Usuario* u = usuariosPorId.buscar(idUsuario);
+    if (u != nullptr) {
+        u->incrementarPublicaciones();
+    }
+}
+
+Usuario* RedSocial::buscarUsuarioPorId(int id) {
+    return usuariosPorId.buscar(id);
+}
+
+Lista<int> RedSocial::caminoAmistad(int idOrigen, int idDestino) {
+    return grafoAmistades.caminoMasCorto(idOrigen, idDestino);
+}
+
+Lista<Usuario> RedSocial::obtenerTopUsuariosActivos(int topK) {
+    ColaPrioridad<Usuario> maxHeap;
+    Lista<Usuario> todos = usuariosPorId.obtenerTodosLosValores();
+
+    for (int i = 0; i < todos.obtenerTamano(); i++) {
+        maxHeap.insertar(todos.obtener(i));
+    }
+
+    Lista<Usuario> topUsuarios;
+    int contador = 0;
+
+    while (!maxHeap.estaVacia() && contador < topK) {
+        topUsuarios.agregarFinal(maxHeap.extraerMaximo());
+        contador++;
+    }
+
+    return topUsuarios;
+}
+
+bool RedSocial::cargarGrafoSNAP(const char* rutaArchivo) {
+    FILE* f = fopen(rutaArchivo, "r");
+    if (!f) {
+        printf("Error al abrir archivo de amistades\n");
+        return false;
+    }
+
+    char buffer[256];
+    int u, v;
+
+    while (fgets(buffer, sizeof(buffer), f)) {
+        if (buffer[0] == '#' || buffer[0] == '%') continue;
+
+        if (sscanf(buffer, "%d %d", &u, &v) == 2 || sscanf(buffer, "%d,%d", &u, &v) == 2) {
+            
+            if (!usuariosPorId.buscar(u)) {
+                char nom[32];
+                snprintf(nom, sizeof(nom), "User_%d", u);
+                registrarUsuario(u, nom, "user@mail.com", "2026-01-01");
+            }
+            if (!usuariosPorId.buscar(v)) {
+                char nom[32];
+                snprintf(nom, sizeof(nom), "User_%d", v);
+                registrarUsuario(v, nom, "user@mail.com", "2026-01-01");
+            }
+
+            agregarAmistad(u, v);
         }
-        destino[i] = '\0';
     }
 
-public:
-    Publicacion() : likes(0), comments(0), shares(0) {
-        postId[0] = '\0';
-        userId[0] = '\0';
-        postContent[0] = '\0';
-        postDate[0] = '\0';
+    fclose(f);
+    return true;
+}
+
+bool RedSocial::cargarPublicacionesCSV(const char* rutaArchivo) {
+    FILE* f = fopen(rutaArchivo, "r");
+    if (!f) {
+        printf("Error al abrir archivo de publicaciones\n");
+        return false;
     }
 
-    Publicacion(const char* pId, const char* uId, const char* content, const char* date, int l, int c, int s)
-        : likes(l), comments(c), shares(s) {
-        copiarTexto(postId, pId, 40);
-        copiarTexto(userId, uId, 40);
-        copiarTexto(postContent, content, 256);
-        copiarTexto(postDate, date, 16);
+    char buffer[1024];
+    // Saltar cabecera del CSV
+    if (!fgets(buffer, sizeof(buffer), f)) {
+        fclose(f);
+        return false;
     }
 
-    const char* getPostId() const { return postId; }
-    const char* getUserId() const { return userId; }
-    const char* getPostContent() const { return postContent; }
-    const char* getPostDate() const { return postDate; }
-    int getLikes() const { return likes; }
-    int getComments() const { return comments; }
-    int getShares() const { return shares; }
+    int idPub = 1;
+    while (fgets(buffer, sizeof(buffer), f)) {
+        int idUsuario, likes;
+        char contenido[256];
+        char fecha[16];
 
-    bool operator>(const Publicacion& otra) const { return likes > otra.likes; }
-    bool operator<(const Publicacion& otra) const { return likes < otra.likes; }
-};
+        if (sscanf(buffer, "%d,%255[^,],%15[^,],%d", &idUsuario, contenido, fecha, &likes) >= 3) {
+            crearPublicacion(idPub++, idUsuario, contenido, fecha, likes);
+        }
+    }
+
+    fclose(f);
+    return true;
+}
