@@ -1,4 +1,5 @@
 #pragma once
+#include "../estructuras/lista.h"
 
 class Usuario {
 private:
@@ -7,7 +8,11 @@ private:
     char email[64];
     char fechaRegistro[16];
     int contadorPublicaciones;
-
+    
+    // nuevos 
+    Lista<int> amigos;       
+    int seguidores;          
+    int reacciones;          
     void copiarTexto(char* destino, const char* origen, int tamMax);
 
 public:
@@ -15,16 +20,23 @@ public:
     Usuario();
     Usuario(int id, const char* nom, const char* em, const char* fecha);
 
-    // getters
     int getId() const;
     const char* getNombre() const;
     const char* getEmail() const;
     const char* getFechaRegistro() const;
     int getContadorPublicaciones() const;
 
-    void incrementarPublicaciones();
+    int getSeguidores() const;
+    int getReacciones() const;
+    int getContadorAmigos() const;  
+    const Lista<int>& getAmigos() const;
 
-    // para ordenar maxheap
+    // metodos modificadores
+    void incrementarPublicaciones();
+    void agregarAmigo(int idAmigo);
+    void incrementarSeguidores();
+    void incrementarReacciones(int cantidad = 1);
+
     bool operator>(const Usuario& otro) const;
     bool operator<(const Usuario& otro) const;
     bool operator==(const Usuario& otro) const;

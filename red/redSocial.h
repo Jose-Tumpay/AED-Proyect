@@ -24,10 +24,9 @@ public:
 
     // operaciones de la red
     bool registrarUsuario(int id, const char* nombre, const char* email, const char* fecha);
-    void agregarAmistad(int id1, int id2);
+    bool agregarAmistad(int id1, int id2);
     void crearPublicacion(int idPub, int idUsuario, const char* contenido, const char* fecha, int likes = 0);
 
-    // Algoritmos y Consultas
     Usuario* buscarUsuarioPorId(int id);
     Lista<int> caminoAmistad(int idOrigen, int idDestino);
     Lista<Usuario> obtenerTopUsuariosActivos(int topK);

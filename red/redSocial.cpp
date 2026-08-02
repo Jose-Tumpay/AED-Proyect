@@ -18,8 +18,19 @@ bool RedSocial::registrarUsuario(int id, const char* nombre, const char* email, 
     return true;
 }
 
-void RedSocial::agregarAmistad(int id1, int id2) {
+bool RedSocial::agregarAmistad(int id1, int id2) {
+    Usuario* u1 = usuariosPorId.buscar(id1);
+    Usuario* u2 = usuariosPorId.buscar(id2);
+
+    if (u1 == nullptr || u2 == nullptr) {
+        return false;
+    }
+
     grafoAmistades.agregarArista(id1, id2);
+    u1->agregarAmigo(id2);
+    u2->agregarAmigo(id1);
+
+    return true;
 }
 
 void RedSocial::crearPublicacion(int idPub, int idUsuario, const char* contenido, const char* fecha, int likes) {
