@@ -255,6 +255,29 @@ static void opcionSugerenciasAmistad(RedSocial& red) {
     printf("\n");
 }
 
+/* @complejidad O(n) sobre las publicaciones: filtra linealmente por autor */
+static void opcionPublicacionesDeUsuario(RedSocial& red) {
+    int idUsuario;
+    if (!leerEntero("  ID del usuario: ", idUsuario)) return;
+
+    if (!red.buscarUsuarioPorId(idUsuario)) {
+        printf("  No existe un usuario con ID %d.\n", idUsuario);
+        return;
+    }
+
+    Lista<Publicacion> pubs = red.obtenerPublicacionesDeUsuario(idUsuario);
+    if (pubs.estaVacia()) {
+        printf("  El usuario %d no tiene publicaciones.\n", idUsuario);
+        return;
+    }
+    printf("  Publicaciones de %d (%d):\n", idUsuario, pubs.obtenerTamano());
+    for (int i = 0; i < pubs.obtenerTamano(); i++) {
+        Publicacion& p = pubs.obtener(i);
+        printf("    %d) ID %-8s fecha %-12s likes: %-4d %s\n",
+               i + 1, p.getPostId(), p.getPostDate(), p.getLikes(), p.getPostContent());
+    }
+}
+
 /* @complejidad O(n log n): un heap con todos los usuarios */
 static void opcionUsuariosMasActivos(RedSocial& red) {
     int topK;
@@ -352,8 +375,9 @@ int main(int argc, char** argv) {
             case 8: opcionCaminoAmistad(red); break;
             case 9: opcionAmigosEnComun(red); break;
             case 10: opcionSugerenciasAmistad(red); break;
+            case 11: opcionPublicacionesDeUsuario(red); break;
             case 12: opcionUsuariosMasActivos(red); break;
-            case 11: case 13:
+            case 13:
                 pendiente(opcion);
                 break;
             default:

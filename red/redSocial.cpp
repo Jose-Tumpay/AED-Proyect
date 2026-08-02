@@ -138,6 +138,16 @@ Lista<int> RedSocial::obtenerSugerenciasAmistad(int idUsuario) {
     return sugerencias;
 }
 
+Lista<Publicacion> RedSocial::obtenerPublicacionesDeUsuario(int idUsuario) {
+    Lista<Publicacion> resultado;
+    for (auto& pub : publicaciones) {
+        if (atoi(pub.getUserId()) == idUsuario) {
+            resultado.agregarFinal(pub);
+        }
+    }
+    return resultado;
+}
+
 bool RedSocial::cargarGrafoSNAP(const char* rutaArchivo) {
     FILE* f = fopen(rutaArchivo, "r");
     if (!f) {

@@ -57,6 +57,7 @@ public:
     Lista<Usuario> obtenerTopUsuariosActivos(int topK);
     Lista<int> amigosEnComun(int id1, int id2);
     Lista<int> obtenerSugerenciasAmistad(int idUsuario);
+    Lista<Publicacion> obtenerPublicacionesDeUsuario(int idUsuario);
 
     bool darLike(int idPub);
 
