@@ -342,9 +342,33 @@ static void modoEscalado(const char* rutaSalida) {
     }
 }
 
+/*
+ * Genera una red sintetica chica (legible en una imagen) y vuelca sus
+ * aristas a CSV para que un script externo (Python + networkx) dibuje el
+ * grafo con comunidades coloreadas -- ver INFORME.md §4.2 (T7). No es una
+ * de las 13 funcionalidades del menu: vive detras de un flag de linea de
+ * comandos, igual que --bench.
+ */
+static void modoVisualizacionGrafo(const char* rutaSalida) {
+    const int N = 300;
+    const int USUARIOS_POR_COMUNIDAD = 50;
+
+    RedSocial red;
+    red.generarUsuariosSinteticos(N, /*enlacesPorUsuario=*/6, USUARIOS_POR_COMUNIDAD);
+
+    if (red.exportarGrafoCSV(rutaSalida)) {
+        printf("Grafo (%d usuarios, %d comunidades de %d) exportado a %s\n",
+               N, N / USUARIOS_POR_COMUNIDAD, USUARIOS_POR_COMUNIDAD, rutaSalida);
+    }
+}
+
 int main(int argc, char** argv) {
     if (argc > 1 && strcmp(argv[1], "--bench") == 0) {
         modoEscalado("output/mediciones.csv");
+        return 0;
+    }
+    if (argc > 1 && strcmp(argv[1], "--graph-viz") == 0) {
+        modoVisualizacionGrafo("output/grafo_aristas.csv");
         return 0;
     }
 

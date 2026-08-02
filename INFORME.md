@@ -272,18 +272,21 @@ mayoría de visores de Markdown; para la sustentación se puede exportar a image
 
 ### 4.2 · Visualización del grafo generado (comunidades coloreadas)
 
-**Pendiente — hueco explícito, no generado en este corte.** La idea (documentada
-aquí para quien la retome): correr `generarUsuariosSinteticos` con un `n` pequeño
-(300-500, para que el layout sea legible), exportar la lista de aristas junto con el
-índice de comunidad de cada usuario, y graficar con `networkx` + `matplotlib`
-(permitido por el enunciado §2 como "generación de gráficos estadísticos" — no es una
-estructura de datos del proyecto, es tooling externo de visualización). Confirmado
-en esta máquina que ambas librerías están disponibles (`python3 -c "import
-matplotlib, networkx"` no da error). Falta escribir el script
-(`scripts/visualizar_grafo.py`, no existe todavía) y correrlo para producir
-`output/grafo_sintetico.png`.
+Generada con `./app --graph-viz` (nuevo modo en `main.cpp`, mismo patrón que `--bench`:
+arma una red sintética chica —300 usuarios, 6 comunidades de 50— y exporta sus aristas
+con `RedSocial::exportarGrafoCSV` a `output/grafo_aristas.csv`) y
+`scripts/visualizar_grafo.py` (`networkx` + `matplotlib`, permitido por el enunciado §2
+como "generación de gráficos estadísticos"; la comunidad de cada nodo se recalcula en
+Python con la misma fórmula que usa el generador, `id // usuariosPorComunidad`, porque
+no se guarda como campo en ningún lado).
 
-> [ESPACIO PARA LA IMAGEN — pegar aquí `output/grafo_sintetico.png` una vez generada]
+![Grafo sintético con comunidades](output/grafo_sintetico.png)
+
+Se ven las 6 comunidades como grupos densos y bien separados, cada uno de un color, con
+muy pocas aristas puente entre ellos — consistente con §6.1: el generador conecta a cada
+usuario nuevo preferentemente dentro de su propia comunidad, y solo agrega un puente
+entre comunidades ocasionalmente (`id % 37 == 0`) o para el primer usuario de cada
+comunidad nueva (para que el grafo completo quede conectado).
 
 ## 5 · Complejidad computacional
 
@@ -611,12 +614,13 @@ Lo que sigue genuinamente pendiente, verificado hoy contra el código:
   hay ninguna llamada a `agregarComentario` en todo el proyecto: no hay opción de menú
   para comentar ni se poblan comentarios al cargar los datasets. La lista de
   comentarios de toda publicación está vacía en la práctica.
-- **Visualización del grafo con comunidades** (§4.2) no se generó — es el único hueco
-  de este informe que sigue siendo un placeholder explícito en vez de contenido real.
-
 (El límite artificial de medición del top-K, `LIMITE_MEDICION_TOPK`, ya se quitó junto
-con el heap acotado de T6 — ver §6.4.)
+con el heap acotado de T6 — ver §6.4. La visualización del grafo con comunidades del
+§4.2, que era el único placeholder explícito de este informe, también se generó — ver
+§4.2.)
 
-Ninguno de estos puntos es difícil de cerrar comparado con lo que ya se resolvió
-(rehash, defecto O(n²), las 13 operaciones cableadas, top-K acotado); quedan como la
-lista de trabajo concreta para la entrega final, no como incertidumbre sobre qué falta.
+Los dos puntos que quedan (`seguidores` y `Comentario` sin usar) son del eje de modelo
+de datos, no difíciles de cerrar comparado con lo que ya se resolvió (rehash, defecto
+O(n²), las 13 operaciones cableadas, top-K acotado, diagrama de clases y visualización
+del grafo); quedan como la lista de trabajo concreta para la entrega final, no como
+incertidumbre sobre qué falta.

@@ -236,7 +236,39 @@ bool RedSocial::cargarGrafoSNAP(const char* rutaArchivo) {
     return true;
 }
 
-// cargar el CSV 
+/*
+ * Exporta las aristas de amistad a CSV (origen,destino), una fila por
+ * arista sin duplicar (el grafo no es dirigido, solo se escribe si
+ * origen < vecino). Pensado para un script externo (Python/networkx) que
+ * dibuje el grafo -- ver T7, scripts/visualizar_grafo.py.
+ *
+ * @complejidad O(usuarios + amistades)
+ */
+bool RedSocial::exportarGrafoCSV(const char* rutaSalida) {
+    FILE* f = fopen(rutaSalida, "w");
+    if (!f) {
+        printf("Error al abrir '%s' para exportar el grafo.\n", rutaSalida);
+        return false;
+    }
+
+    fprintf(f, "origen,destino\n");
+
+    Lista<Usuario> todos = usuariosPorId.obtenerTodosLosValores();
+    for (auto& u : todos) {
+        int origen = u.getId();
+        Lista<int> vecinos = grafoAmistades.obtenerVecinos(origen);
+        for (int vecino : vecinos) {
+            if (origen < vecino) {
+                fprintf(f, "%d,%d\n", origen, vecino);
+            }
+        }
+    }
+
+    fclose(f);
+    return true;
+}
+
+// cargar el CSV
 bool RedSocial::cargarPublicacionesCSV(const char* rutaArchivo) {
     FILE* f = fopen(rutaArchivo, "r");
     if (!f) {
