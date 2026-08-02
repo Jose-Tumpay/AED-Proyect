@@ -34,6 +34,25 @@ private:
         return hash % capacidad;
     }
 
+    // duplica la capacidad (mantiene impar para reducir colisiones con mod)
+    // y reinserta todo. Se dispara desde insertar() al pasar el 75% de carga.
+    void rehashear() {
+        int capacidadVieja = capacidad;
+        Lista<Par>* tablaVieja = tabla;
+
+        capacidad = capacidad * 2 + 1;
+        tabla = new Lista<Par>[capacidad];
+        tamano = 0;
+
+        for (int i = 0; i < capacidadVieja; i++) {
+            for (Par& p : tablaVieja[i]) {
+                insertar(p.clave, p.valor);
+            }
+        }
+
+        delete[] tablaVieja;
+    }
+
 public:
     explicit TablaHash(int cap = 10007) : capacidad(cap), tamano(0) {
         tabla = new Lista<Par>[capacidad];
@@ -53,6 +72,10 @@ public:
         }
         tabla[idx].agregarFinal(Par(clave, valor));
         tamano++;
+
+        if (tamano > (capacidad * 3) / 4) {
+            rehashear();
+        }
     }
 
     V* buscar(const K& clave) {
