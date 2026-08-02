@@ -174,6 +174,51 @@ static void opcionEliminarPublicacion(RedSocial& red) {
     }
 }
 
+/* @complejidad O(1) promedio: dos busquedas en la tabla hash */
+static void opcionAgregarAmigo(RedSocial& red) {
+    int id1, id2;
+    if (!leerEntero("  ID del primer usuario: ", id1)) return;
+    if (!leerEntero("  ID del segundo usuario: ", id2)) return;
+
+    if (red.agregarAmistad(id1, id2)) {
+        printf("  Amistad %d <-> %d creada.\n", id1, id2);
+    } else {
+        printf("  No se pudo crear la amistad (algun ID no existe).\n");
+    }
+}
+
+/* @complejidad O(1) promedio: dos busquedas en la tabla hash */
+static void opcionEliminarAmigo(RedSocial& red) {
+    int id1, id2;
+    if (!leerEntero("  ID del primer usuario: ", id1)) return;
+    if (!leerEntero("  ID del segundo usuario: ", id2)) return;
+
+    if (red.eliminarAmistad(id1, id2)) {
+        printf("  Amistad %d <-> %d eliminada.\n", id1, id2);
+    } else {
+        printf("  No se pudo eliminar la amistad (algun ID no existe).\n");
+    }
+}
+
+/* @complejidad O(usuarios + amistades): BFS sobre el grafo */
+static void opcionCaminoAmistad(RedSocial& red) {
+    int origen, destino;
+    if (!leerEntero("  ID origen: ", origen)) return;
+    if (!leerEntero("  ID destino: ", destino)) return;
+
+    Lista<int> camino = red.caminoAmistad(origen, destino);
+    if (camino.estaVacia()) {
+        printf("  No hay camino entre %d y %d.\n", origen, destino);
+        return;
+    }
+    printf("  Camino (%d saltos): ", camino.obtenerTamano() - 1);
+    for (int i = 0; i < camino.obtenerTamano(); i++) {
+        printf("%d", camino.obtener(i));
+        if (i + 1 < camino.obtenerTamano()) printf(" -> ");
+    }
+    printf("\n");
+}
+
 int main() {
     RedSocial red;
 
@@ -202,7 +247,10 @@ int main() {
             case 3: opcionBuscarUsuario(red); break;
             case 4: opcionCrearPublicacion(red); break;
             case 5: opcionEliminarPublicacion(red); break;
-            case 6: case 7: case 8: case 9: case 10:
+            case 6: opcionAgregarAmigo(red); break;
+            case 7: opcionEliminarAmigo(red); break;
+            case 8: opcionCaminoAmistad(red); break;
+            case 9: case 10:
             case 11: case 12: case 13:
                 pendiente(opcion);
                 break;
