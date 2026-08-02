@@ -1,8 +1,14 @@
 # Informe técnico — Red social con estructuras de datos propias
 
-Proyecto Final, curso de Algoritmos y Estructuras de Datos (AED). Estructura según el
-reparto de `PLAN-v2.pdf` (E8: informe con 8 secciones). Esqueleto inicial: los títulos y
-los responsables ya están fijados; el contenido se completa en los commits siguientes.
+Proyecto Final, curso de Algoritmos y Estructuras de Datos (AED). Esqueleto y contenido
+según el reparto de `PLAN-v2.pdf`: seis de las ocho secciones están firmadas; las otras dos
+(Descripción de las estructuras, Complejidad computacional) quedan marcadas como
+pendientes para Jose, y la parte de Diagramas de grafo/pseudocódigo para el Tercero
+integrante.
+
+Estado: **borrador en progreso**. Los números de la sección 6 son reales (se generaron
+corriendo `./app --bench` sobre este repositorio); las capturas de pantalla de la sección 7
+todavía no se tomaron.
 
 ---
 
@@ -10,15 +16,81 @@ los responsables ya están fijados; el contenido se completa en los commits sigu
 
 *(Cristhian — C5)*
 
-> TODO Cristhian: alcance del proyecto, fuentes de datos (SNAP, CSV de Kaggle, generador
-> sintético propio) y resumen de las 13 funcionalidades pedidas por el enunciado.
+El proyecto implementa una red social mínima en C++17, sin ninguna estructura de datos de
+la STL (E1 del enunciado): toda lista, tabla hash, grafo, cola y cola de prioridad que usa
+el sistema está escrita desde cero en `estructuras/`.
+
+El sistema soporta las 13 funcionalidades pedidas en el enunciado (registrar, eliminar y
+buscar usuarios; crear, eliminar y listar publicaciones; gestionar amistades; camino más
+corto entre usuarios; amigos en común; sugerencias de amistad; ranking de usuarios activos
+y de publicaciones por reacciones), organizadas en un menú de consola (`main.cpp`)
+deliberadamente sobrio, ya que el enunciado aclara que el aspecto visual no se evalúa.
+
+Como fuente de datos se usa una combinación de:
+
+- Un dataset público de amistades (formato SNAP, `data/amistades_4039n_88234r.txt`):
+  4 039 usuarios, 88 234 aristas.
+- Un CSV de publicaciones de Kaggle (`data/publicaciones_interaciiones.csv`, 20 000 filas)
+  para poblar contenido realista.
+- Un **generador sintético propio** (`RedSocial::generarUsuariosSinteticos`, ver §6) capaz
+  de producir cientos de miles de usuarios con su grafo de amistades, para poder medir
+  escalabilidad más allá de lo que ofrece el dataset público (E6, E7).
+
+El resto del informe describe la arquitectura del sistema, los resultados experimentales
+de escalabilidad obtenidos con el generador sintético, y las conclusiones del equipo.
 
 ## 2 · Arquitectura
 
 *(Cristhian — C5)*
 
-> TODO Cristhian: módulos del proyecto (`estructuras/`, `red/`, `main.cpp`), diseño de la
-> fachada `RedSocial` y diagrama de módulos.
+El código está organizado en tres módulos (E3):
+
+```
+estructuras/    Contenedores genéricos, sin conocimiento del dominio "red social"
+  lista.h         Lista doblemente enlazada con iterador (base de casi todo lo demás)
+  tablaHash.h     Tabla hash generica <K,V>, encadenamiento con Lista<Par>, hash DJB2 para
+                  strings y modulo para enteros
+  grafo.h         Grafo no dirigido sobre TablaHash<int, Lista<int>>; BFS para camino mas
+                  corto
+  colaPrioridad.h Heap binario sobre arreglo, usado para rankings (top-K)
+  cola.h, Pila.h  Cola y pila clasicas, usadas por el BFS y utilidades internas
+
+red/            El dominio: usuarios, publicaciones, comentarios y la fachada RedSocial
+  usuario.h/.cpp        Los 9 campos de Usuario (E4)
+  publicacion.h/.cpp    Los 7 campos de Publicacion (E4), incluida su Lista<Comentario>
+  comentario.h/.cpp     Comentario individual de una publicacion
+  redSocial.h/.cpp      Fachada: une TablaHash<int,Usuario> + Grafo + Lista<Publicacion> y
+                         expone las operaciones del enunciado
+  redSocial_io.cpp      Generador sintetico, enlace preferencial y medicion de tiempos
+                         (C2-C4 de este informe)
+
+main.cpp        Menu de consola (13 opciones) + modo `--bench` (bateria de escalado)
+```
+
+Diseño de la fachada `RedSocial`: por requisito (E4) cada `Usuario` guarda su propia
+`Lista<int> amigos`, y por eficiencia de recorrido el `Grafo` mantiene además su propia
+`TablaHash<int, Lista<int>> adyacencia`. Es una duplicación deliberada — el campo del
+enunciado y el índice de recorrido no son la misma responsabilidad — sincronizada en la
+misma operación (`agregarAmistad`, `eliminarAmistad`, `eliminarUsuario`).
+
+Diagrama de módulos (versión mínima; el diagrama de clases completo y el del grafo generado
+quedan para T7, ver §4):
+
+```
+        main.cpp
+           |
+           v
+     red/redSocial.{h,cpp}  <---- red/redSocial_io.cpp (generador, mediciones)
+       |        |       \
+       v        v        v
+  usuario   publicacion  (usa)
+       \        |
+        \       v
+         \  comentario
+          \     |
+           v    v
+      estructuras/{lista,tablaHash,grafo,colaPrioridad,cola,Pila}.h
+```
 
 ## 3 · Descripción de las estructuras
 
@@ -139,6 +211,20 @@ que hace el plan de trabajo en su §7 sobre la misma causa (capacidad fija sin r
 
 ## 8 · Conclusiones
 
-*(Los tres)*
+*(Los tres — borrador de Cristhian, falta revisión conjunta)*
 
-> TODO: conclusiones del equipo tras cerrar J4 (rehash) y T1 (quitar `obtener(i)` en bucle).
+El sistema cumple el núcleo del enunciado sin usar STL: las 13 funcionalidades tienen
+código funcional y 11 ya están cableadas al menú (las 2 restantes, mostrar publicaciones de
+un usuario y publicaciones con más reacciones, son la tarea T2/T3 del plan). El generador
+sintético con enlace preferencial permite demostrar y medir el sistema con cientos de miles
+de usuarios (E6), muy por encima de los 4 039 del dataset público, sin depender de datos
+externos para escalar.
+
+Las mediciones de la §6 muestran, con números y no solo con intuición, los dos límites de
+la implementación actual: el top-K cuadrático (Defecto 2 / T1) y la tabla hash sin rehash
+(J4). Ambos son arreglos acotados y ya están identificados en el plan de trabajo; documentar
+la degradación en vez de ocultarla es, según el propio enunciado, parte del "análisis de
+rendimiento" que se evalúa (E10).
+
+> TODO equipo: ampliar esta sección tras cerrar J4 (rehash) y T1 (quitar `obtener(i)` en
+> bucle) — repetir la batería de §6 y contrastar antes/después.
