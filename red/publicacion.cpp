@@ -1,9 +1,7 @@
-#include "Publicacion.h"
+#include "publicacion.h"
 
-// copia de caracteres
 void Publicacion::copiarTexto(char* destino, const char* origen, int tamMax) {
     if (!destino || !origen || tamMax <= 0) return;
-
     int i = 0;
     while (origen[i] != '\0' && i < tamMax - 1) {
         destino[i] = origen[i];
@@ -12,45 +10,49 @@ void Publicacion::copiarTexto(char* destino, const char* origen, int tamMax) {
     destino[i] = '\0';
 }
 
-// constructor por defecto
-Publicacion::Publicacion() : id(0), idUsuario(0), likes(0) {
-    contenido[0] = '\0';
-    fecha[0] = '\0';
+Publicacion::Publicacion() : likes(0), comments(0), shares(0) {
+    postId[0] = '\0';
+    userId[0] = '\0';
+    postContent[0] = '\0';
+    postDate[0] = '\0';
 }
 
-// constructor parametrizado
-Publicacion::Publicacion(int id, int idUsuario, const char* cont, const char* f, int likes)
-    : id(id), idUsuario(idUsuario), likes(likes) {
-    copiarTexto(contenido, cont, 256);
-    copiarTexto(fecha, f, 16);
+Publicacion::Publicacion(const char* pId, const char* uId, const char* content, const char* date, int l, int c, int s)
+    : likes(l), comments(c), shares(s) {
+    copiarTexto(postId, pId, 40);
+    copiarTexto(userId, uId, 40);
+    copiarTexto(postContent, content, 256);
+    copiarTexto(postDate, date, 16);
 }
 
-int Publicacion::getId() const {
-    return id;
+const char* Publicacion::getPostId() const {
+    return postId;
 }
 
-int Publicacion::getIdUsuario() const {
-    return idUsuario;
+const char* Publicacion::getUserId() const {
+    return userId;
 }
 
-const char* Publicacion::getContenido() const {
-    return contenido;
+const char* Publicacion::getPostContent() const {
+    return postContent;
 }
 
-const char* Publicacion::getFecha() const {
-    return fecha;
+const char* Publicacion::getPostDate() const {
+    return postDate;
 }
 
 int Publicacion::getLikes() const {
     return likes;
 }
 
-// modificador
-void Publicacion::darLike() {
-    likes++;
+int Publicacion::getComments() const {
+    return comments;
 }
 
-// comparadores 
+int Publicacion::getShares() const {
+    return shares;
+}
+
 bool Publicacion::operator>(const Publicacion& otra) const {
     return likes > otra.likes;
 }
@@ -60,5 +62,10 @@ bool Publicacion::operator<(const Publicacion& otra) const {
 }
 
 bool Publicacion::operator==(const Publicacion& otra) const {
-    return id == otra.id;
+    int i = 0;
+    while (postId[i] != '\0' && otra.postId[i] != '\0') {
+        if (postId[i] != otra.postId[i]) return false;
+        i++;
+    }
+    return postId[i] == otra.postId[i];
 }

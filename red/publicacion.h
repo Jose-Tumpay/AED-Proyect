@@ -2,29 +2,29 @@
 
 class Publicacion {
 private:
-    int id;
-    int idUsuario;
-    char contenido[256];
-    char fecha[16];
+    char postId[40];
+    char userId[40];
+    char postContent[256];
+    char postDate[16];
     int likes;
+    int comments;
+    int shares;
 
     void copiarTexto(char* destino, const char* origen, int tamMax);
 
 public:
-    // constructores
     Publicacion();
-    Publicacion(int id, int idUsuario, const char* cont, const char* f, int likes = 0);
+    Publicacion(const char* pId, const char* uId, const char* content, const char* date, int l, int c, int s);
 
-    // getters
-    int getId() const;
-    int getIdUsuario() const;
-    const char* getContenido() const;
-    const char* getFecha() const;
+    const char* getPostId() const;
+    const char* getUserId() const;
+    const char* getPostContent() const;
+    const char* getPostDate() const;
     int getLikes() const;
+    int getComments() const;
+    int getShares() const;
 
-    void darLike();
-
-    // sobrecarga maxheap
+    // Métodos const con nombres de parámetro idénticos a la implementación
     bool operator>(const Publicacion& otra) const;
     bool operator<(const Publicacion& otra) const;
     bool operator==(const Publicacion& otra) const;
