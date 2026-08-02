@@ -15,15 +15,18 @@ private:
     int tamano;
 
 public:
+    /// @complejidad O(1)
     Cola() : frenteNodo(nullptr), finalNodo(nullptr), tamano(0) {}
 
     Cola(const Cola&) = delete;
     Cola& operator=(const Cola&) = delete;
 
+    /// @complejidad O(n) — desencola cada nodo restante
     ~Cola() {
         while (!estaVacia()) encolar_pop();
     }
 
+    /// @complejidad O(1) — se mantiene puntero al final
     void encolar(const T& dato) {
         Nodo* nuevo = new Nodo(dato);
         if (!finalNodo) {
@@ -35,6 +38,7 @@ public:
         tamano++;
     }
 
+    /// @complejidad O(1)
     T desencolar() {
         if (estaVacia()) throw std::underflow_error("Cola vacia");
         Nodo* temp = frenteNodo;
@@ -46,15 +50,19 @@ public:
         return dato;
     }
 
+    /// @complejidad O(1)
     void encolar_pop() {
         if (!estaVacia()) desencolar();
     }
 
+    /// @complejidad O(1)
     T frente() const {
         if (estaVacia()) throw std::underflow_error("Cola vacia");
         return frenteNodo->dato;
     }
 
+    /// @complejidad O(1)
     bool estaVacia() const { return tamano == 0; }
+    /// @complejidad O(1)
     int obtenerTamano() const { return tamano; }
 };

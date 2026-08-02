@@ -36,6 +36,8 @@ private:
 
     // duplica la capacidad (mantiene impar para reducir colisiones con mod)
     // y reinserta todo. Se dispara desde insertar() al pasar el 75% de carga.
+    // @complejidad O(n) — pero amortizado O(1) por insercion, ya que solo se
+    // dispara cuando n crece proporcional a la capacidad.
     void rehashear() {
         int capacidadVieja = capacidad;
         Lista<Par>* tablaVieja = tabla;
@@ -54,17 +56,25 @@ private:
     }
 
 public:
+    /// @complejidad O(capacidad) — inicializa el arreglo de listas vacias
     explicit TablaHash(int cap = 10007) : capacidad(cap), tamano(0) {
         tabla = new Lista<Par>[capacidad];
     }
 
+    // tabla es un arreglo dinamico de Lista<Par>: copiar por defecto
+    // duplicaria el puntero, no el arreglo -> doble delete[] al destruir.
     TablaHash(const TablaHash&) = delete;
     TablaHash& operator=(const TablaHash&) = delete;
     
+    /// @complejidad O(capacidad + n) — libera el arreglo; cada Lista de
+    /// cubeta libera sus propios nodos en cascada
     ~TablaHash() {
         delete[] tabla;
     }
 
+    /// @complejidad O(1) promedio (distribucion uniforme de la funcion hash);
+    /// O(n) en el peor caso si todas las claves colisionan en la misma
+    /// cubeta. Amortizado O(1) incluyendo el rehash periodico.
     void insertar(const K& clave, const V& valor) {
         int idx = funcionHash(clave);
         for (Par& p : tabla[idx]) {
@@ -81,6 +91,7 @@ public:
         }
     }
 
+    /// @complejidad O(1) promedio; O(longitud de la cubeta) en el peor caso
     V* buscar(const K& clave) {
         int idx = funcionHash(clave);
         for (Par& p : tabla[idx]) {
@@ -91,6 +102,8 @@ public:
         return nullptr;
     }
 
+    /// @complejidad O(1) promedio (buscar + Lista::eliminar en su cubeta);
+    /// O(longitud de la cubeta) en el peor caso
     bool eliminar(const K& clave) {
         int idx = funcionHash(clave);
         V* val = buscar(clave);
@@ -104,8 +117,10 @@ public:
         return false;
     }
 
+    /// @complejidad O(1)
     int obtenerTamano() const { return tamano; }
 
+    /// @complejidad O(capacidad + n) — recorre todas las cubetas
     // reusar el iterador para tener los valores de la tabla hash
     Lista<V> obtenerTodosLosValores() const {
         Lista<V> resultado;
