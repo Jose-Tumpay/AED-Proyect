@@ -35,7 +35,8 @@ bool RedSocial::agregarAmistad(int id1, int id2) {
     return true;
 }
 
-void RedSocial::crearPublicacion(int idPub, int idUsuario, const char* contenido, const char* fecha, int likes) {
+void RedSocial::crearPublicacion(int idPub, int idUsuario, const char* contenido, const char* fecha,
+                                  int likes, int comentariosSinteticos) {
     char pIdStr[40];
     char uIdStr[40];
 
@@ -44,6 +45,9 @@ void RedSocial::crearPublicacion(int idPub, int idUsuario, const char* contenido
 
     // prepara para los 7 parámetros de Publicacion: pId, uId, content, date, likes, comments, shares
     Publicacion pub(pIdStr, uIdStr, contenido, fecha, likes, 0, 0);
+    for (int i = 0; i < comentariosSinteticos; i++) {
+        pub.agregarComentario(Comentario(i, idUsuario, "Comentario sintetico", fecha));
+    }
     publicaciones.agregarFinal(pub);
     totalPublicaciones++;
 
@@ -365,7 +369,13 @@ bool RedSocial::cargarPublicacionesCSV(const char* rutaArchivo) {
             // mapaear laspublicaciones
             int idUsuarioAsignado = (idPub - 1) % (totalUsuarios > 0 ? totalUsuarios : 4039);
 
-            crearPublicacion(idPub, idUsuarioAsignado, content, postDate, likes);
+            int comentariosSinteticos = comments < 5 ? comments : 5;
+            crearPublicacion(idPub, idUsuarioAsignado, content, postDate, likes, comentariosSinteticos);
+
+            Usuario* autor = usuariosPorId.buscar(idUsuarioAsignado);
+            if (autor != nullptr) {
+                autor->incrementarSeguidores(followers);
+            }
             idPub++;
         }
     }

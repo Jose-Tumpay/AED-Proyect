@@ -55,8 +55,8 @@ void Usuario::agregarAmigo(int idAmigo) {
     amigos.agregarFinal(idAmigo); 
 }
 
-void Usuario::incrementarSeguidores() { 
-    seguidores++; 
+void Usuario::incrementarSeguidores(int cantidad) {
+    seguidores += cantidad;
 }
 
 void Usuario::incrementarReacciones(int cantidad) { 
