@@ -141,6 +141,39 @@ static void opcionBuscarUsuario(RedSocial& red) {
     printf("  Reacciones recibidas: %d\n", u->getReacciones());
 }
 
+/* @complejidad O(1) amortizado: se agrega al final de la lista de publicaciones */
+static void opcionCrearPublicacion(RedSocial& red) {
+    int idPub, idUsuario, likes;
+    char contenido[256], fecha[16];
+
+    if (!leerEntero("  ID de la publicacion: ", idPub)) return;
+    if (!leerEntero("  ID del usuario autor: ", idUsuario)) return;
+
+    if (!red.buscarUsuarioPorId(idUsuario)) {
+        printf("  No existe un usuario con ID %d.\n", idUsuario);
+        return;
+    }
+
+    if (!leerTexto("  Contenido: ", contenido, sizeof(contenido))) return;
+    if (!leerTexto("  Fecha (YYYY-MM-DD): ", fecha, sizeof(fecha))) return;
+    if (!leerEntero("  Likes iniciales: ", likes)) return;
+
+    red.crearPublicacion(idPub, idUsuario, contenido, fecha, likes);
+    printf("  Publicacion %d creada.\n", idPub);
+}
+
+/* @complejidad O(n) sobre las publicaciones: busca linealmente el ID */
+static void opcionEliminarPublicacion(RedSocial& red) {
+    int idPub;
+    if (!leerEntero("  ID de publicacion a eliminar: ", idPub)) return;
+
+    if (red.eliminarPublicacion(idPub)) {
+        printf("  Publicacion %d eliminada.\n", idPub);
+    } else {
+        printf("  No existe una publicacion con ID %d.\n", idPub);
+    }
+}
+
 int main() {
     RedSocial red;
 
@@ -167,7 +200,8 @@ int main() {
             case 1: opcionRegistrarUsuario(red); break;
             case 2: opcionEliminarUsuario(red); break;
             case 3: opcionBuscarUsuario(red); break;
-            case 4: case 5:
+            case 4: opcionCrearPublicacion(red); break;
+            case 5: opcionEliminarPublicacion(red); break;
             case 6: case 7: case 8: case 9: case 10:
             case 11: case 12: case 13:
                 pendiente(opcion);
