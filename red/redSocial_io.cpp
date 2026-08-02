@@ -201,3 +201,22 @@ MedicionTiempos RedSocial::medirOperaciones(int n, int enlacesPorUsuario, int us
 
     return m;
 }
+
+/* @complejidad O(cantidad): una escritura por fila */
+bool exportarMedicionesCSV(const char* rutaSalida, const MedicionTiempos* mediciones, int cantidad) {
+    FILE* f = fopen(rutaSalida, "w");
+    if (!f) {
+        printf("Error al abrir '%s' para exportar mediciones.\n", rutaSalida);
+        return false;
+    }
+
+    fprintf(f, "n,ms_carga,ms_insercion,ms_busqueda,ms_bfs,ms_sugerencias,ms_topk\n");
+    for (int i = 0; i < cantidad; i++) {
+        const MedicionTiempos& m = mediciones[i];
+        fprintf(f, "%d,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f\n",
+                m.n, m.msCarga, m.msInsercion, m.msBusqueda, m.msBFS, m.msSugerencias, m.msTopK);
+    }
+
+    fclose(f);
+    return true;
+}
