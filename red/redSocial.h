@@ -35,4 +35,8 @@ public:
 
     int obtenerNumUsuarios() const { return totalUsuarios; }
     int obtenerNumPublicaciones() const { return totalPublicaciones; }
+
+    bool eliminarAmistad(int id1, int id2);
+    bool eliminarPublicacion(int idPub);
+    bool eliminarUsuario(int idUsuario);
 };

@@ -216,3 +216,68 @@ bool RedSocial::cargarPublicacionesCSV(const char* rutaArchivo) {
     fclose(f);
     return true;
 }
+
+bool RedSocial::eliminarAmistad(int id1, int id2) {
+    Usuario* u1 = usuariosPorId.buscar(id1);
+    Usuario* u2 = usuariosPorId.buscar(id2);
+
+    if (u1 == nullptr || u2 == nullptr) {
+        return false;
+    }
+
+    u1->eliminarAmigo(id2);
+    u2->eliminarAmigo(id1);
+
+    grafoAmistades.eliminarArista(id1, id2);
+
+    return true;
+}
+
+bool RedSocial::eliminarPublicacion(int idPub) {
+    char pIdStr[40];
+    snprintf(pIdStr, sizeof(pIdStr), "%d", idPub);
+
+    for (int i = 0; i < publicaciones.obtenerTamano(); i++) {
+        const char* actualId = publicaciones.obtener(i).getPostId();
+        
+        bool iguales = true;
+        int j = 0;
+        while (actualId[j] != '\0' || pIdStr[j] != '\0') {
+            if (actualId[j] != pIdStr[j]) {
+                iguales = false;
+                break;
+            }
+            j++;
+        }
+
+        if (iguales) {
+            publicaciones.eliminar(publicaciones.obtener(i));
+            totalPublicaciones--;
+            return true;
+        }
+    }
+    return false;
+}
+
+bool RedSocial::eliminarUsuario(int idUsuario) {
+    Usuario* u = usuariosPorId.buscar(idUsuario);
+    if (u == nullptr) {
+        return false;
+    }
+
+    // 1. Quitar este ID de la lista de amigos de todos sus amigos directos
+    const Lista<int>& susAmigos = u->getAmigos();
+    for (int i = 0; i < susAmigos.obtenerTamano(); i++) {
+        int idAmigo = susAmigos.obtener(i);
+        Usuario* amigo = usuariosPorId.buscar(idAmigo);
+        if (amigo != nullptr) {
+            amigo->eliminarAmigo(idUsuario);
+        }
+    }
+
+    // 2. Eliminar de la Tabla Hash principal
+    usuariosPorId.eliminar(idUsuario);
+    totalUsuarios--;
+
+    return true;
+}

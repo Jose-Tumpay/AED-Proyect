@@ -40,4 +40,6 @@ public:
     bool operator>(const Usuario& otro) const;
     bool operator<(const Usuario& otro) const;
     bool operator==(const Usuario& otro) const;
+
+    void eliminarAmigo(int idAmigo);
 };

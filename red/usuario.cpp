@@ -70,3 +70,7 @@ bool Usuario::operator<(const Usuario& otro) const {
 bool Usuario::operator==(const Usuario& otro) const { 
     return id == otro.id; 
 }
+
+void Usuario::eliminarAmigo(int idAmigo) {
+    amigos.eliminar(idAmigo);
+}
