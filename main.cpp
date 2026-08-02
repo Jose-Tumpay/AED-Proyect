@@ -170,6 +170,28 @@ static void opcionEliminarPublicacion(RedSocial& red) {
     }
 }
 
+/* @complejidad O(publicaciones del usuario + publicaciones totales), ver T2 */
+static void opcionMostrarPublicacionesUsuario(RedSocial& red) {
+    int id;
+    if (!leerEntero("  ID del usuario: ", id)) return;
+
+    if (!red.buscarUsuarioPorId(id)) {
+        printf("  No existe un usuario con ID %d.\n", id);
+        return;
+    }
+
+    Lista<Publicacion> pubs = red.obtenerPublicacionesDeUsuario(id);
+    if (pubs.estaVacia()) {
+        printf("  El usuario %d no tiene publicaciones.\n", id);
+        return;
+    }
+    printf("  Publicaciones de %d (%d):\n", id, pubs.obtenerTamano());
+    for (Publicacion& p : pubs) {
+        printf("    [%s] %s (likes: %d, comentarios: %d)\n",
+               p.getPostId(), p.getPostContent(), p.getLikes(), p.getComments());
+    }
+}
+
 /* @complejidad O(1) promedio: dos busquedas en la tabla hash */
 static void opcionAgregarAmigo(RedSocial& red) {
     int id1, id2;
@@ -233,7 +255,8 @@ static void opcionAmigosEnComun(RedSocial& red) {
     printf("\n");
 }
 
-/* @complejidad O(amigos * amigos-de-amigos) */
+/* @complejidad O(amigos * amigos-de-amigos + c log c): c = candidatos unicos,
+   rankeados por amigos en comun (mayor primero) */
 static void opcionSugerenciasAmistad(RedSocial& red) {
     int id;
     if (!leerEntero("  ID del usuario: ", id)) return;
@@ -243,37 +266,14 @@ static void opcionSugerenciasAmistad(RedSocial& red) {
         printf("  No hay sugerencias para el usuario %d.\n", id);
         return;
     }
-    printf("  Sugerencias (%d): ", sugerencias.obtenerTamano());
+    printf("  Sugerencias por amigos en comun, mayor primero (%d): ", sugerencias.obtenerTamano());
     for (int i = 0; i < sugerencias.obtenerTamano(); i++) {
         printf("%d ", sugerencias.obtener(i));
     }
     printf("\n");
 }
 
-/* @complejidad O(n) sobre las publicaciones: filtra linealmente por autor */
-static void opcionPublicacionesDeUsuario(RedSocial& red) {
-    int idUsuario;
-    if (!leerEntero("  ID del usuario: ", idUsuario)) return;
-
-    if (!red.buscarUsuarioPorId(idUsuario)) {
-        printf("  No existe un usuario con ID %d.\n", idUsuario);
-        return;
-    }
-
-    Lista<Publicacion> pubs = red.obtenerPublicacionesDeUsuario(idUsuario);
-    if (pubs.estaVacia()) {
-        printf("  El usuario %d no tiene publicaciones.\n", idUsuario);
-        return;
-    }
-    printf("  Publicaciones de %d (%d):\n", idUsuario, pubs.obtenerTamano());
-    for (int i = 0; i < pubs.obtenerTamano(); i++) {
-        Publicacion& p = pubs.obtener(i);
-        printf("    %d) ID %-8s fecha %-12s likes: %-4d %s\n",
-               i + 1, p.getPostId(), p.getPostDate(), p.getLikes(), p.getPostContent());
-    }
-}
-
-/* @complejidad O(n log k): heap acotado a tamano k (T6) */
+/* @complejidad O(n log k): min-heap acotado a k elementos (n = usuarios, k = topK) */
 static void opcionUsuariosMasActivos(RedSocial& red) {
     int topK;
     if (!leerEntero("  Cuantos usuarios mostrar: ", topK)) return;
@@ -291,21 +291,20 @@ static void opcionUsuariosMasActivos(RedSocial& red) {
     }
 }
 
-/* @complejidad O(n log k): heap acotado a tamano k (T6) */
-static void opcionPublicacionesMasReacciones(RedSocial& red) {
+/* @complejidad O(m log k): min-heap acotado a k elementos (m = publicaciones, k = topK) */
+static void opcionPublicacionesTopReacciones(RedSocial& red) {
     int topK;
     if (!leerEntero("  Cuantas publicaciones mostrar: ", topK)) return;
 
-    Lista<Publicacion> top = red.obtenerPublicacionesConMasReacciones(topK);
+    Lista<Publicacion> top = red.obtenerPublicacionesTopReacciones(topK);
     if (top.estaVacia()) {
         printf("  No hay publicaciones registradas.\n");
         return;
     }
-    printf("  Top %d publicaciones por likes:\n", top.obtenerTamano());
-    for (int i = 0; i < top.obtenerTamano(); i++) {
-        Publicacion& p = top.obtener(i);
-        printf("    %d) ID %-8s autor %-8s likes: %d\n",
-               i + 1, p.getPostId(), p.getUserId(), p.getLikes());
+    printf("  Top %d publicaciones por reacciones:\n", top.obtenerTamano());
+    int puesto = 1;
+    for (Publicacion& p : top) {
+        printf("    %d) [%s] likes: %-6d %s\n", puesto++, p.getPostId(), p.getLikes(), p.getPostContent());
     }
 }
 
@@ -411,9 +410,9 @@ int main(int argc, char** argv) {
             case 8: opcionCaminoAmistad(red); break;
             case 9: opcionAmigosEnComun(red); break;
             case 10: opcionSugerenciasAmistad(red); break;
-            case 11: opcionPublicacionesDeUsuario(red); break;
             case 12: opcionUsuariosMasActivos(red); break;
-            case 13: opcionPublicacionesMasReacciones(red); break;
+            case 11: opcionMostrarPublicacionesUsuario(red); break;
+            case 13: opcionPublicacionesTopReacciones(red); break;
             default:
                 printf("  Opcion fuera de rango.\n");
                 break;

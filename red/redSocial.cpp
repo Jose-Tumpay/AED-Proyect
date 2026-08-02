@@ -3,25 +3,6 @@
 #include <cstdlib>
 #include <cstring>
 
-namespace {
-
-// Envoltorio que invierte el orden de comparacion de T, para poder usar
-// ColaPrioridad<Inverso<T>> como min-heap sin reimplementar la logica de
-// heap (que ya vive, probada, en ColaPrioridad). Util local a este .cpp,
-// no una estructura de dominio nueva en estructuras/.
-template <typename T>
-struct Inverso {
-    T valor;
-
-    Inverso() : valor() {}
-    explicit Inverso(const T& v) : valor(v) {}
-
-    bool operator>(const Inverso<T>& otro) const { return valor < otro.valor; }
-    bool operator<(const Inverso<T>& otro) const { return valor > otro.valor; }
-};
-
-} // namespace
-
 RedSocial::RedSocial() {
     totalUsuarios = 0;
     totalPublicaciones = 0;
@@ -83,31 +64,33 @@ Lista<int> RedSocial::caminoAmistad(int idOrigen, int idDestino) {
     return grafoAmistades.caminoMasCorto(idOrigen, idDestino);
 }
 
+// E10: top-K acotado. Antes se copiaban los N usuarios a una Lista
+// (usuariosPorId.obtenerTodosLosValores(), O(n) memoria) y se armaba un heap
+// de tamano N para sacar solo K. Ahora se recorre la TablaHash directamente
+// (sin copia intermedia) y se mantiene un min-heap acotado a K elementos:
+// cada usuario nuevo solo entra si supera al peor (el minimo) que ya esta
+// adentro, que se descarta.
+// @complejidad O(n log k) tiempo, O(k) memoria (n = usuarios totales, k = topK)
 Lista<Usuario> RedSocial::obtenerTopUsuariosActivos(int topK) {
     Lista<Usuario> topUsuarios;
+    if (topK <= 0) return topUsuarios;
 
-    Lista<Usuario> todos = usuariosPorId.obtenerTodosLosValores();
-    int n = todos.obtenerTamano();
-    if (topK <= 0 || n == 0) return topUsuarios;
+    ColaPrioridad<Usuario> minHeap(topK, /*minHeap=*/true);
 
-    // heap acotado a min(topK, n): O(n log k) y O(k) de memoria, en vez de
-    // meter los n elementos completos (O(n log n) y O(n))
-    int capInicial = (topK < n) ? topK : n;
-    ColaPrioridad<Inverso<Usuario>> minHeap(capInicial);
-
-    for (auto& u : todos) {
+    for (Usuario& u : usuariosPorId) {
         if (minHeap.obtenerTamano() < topK) {
-            minHeap.insertar(Inverso<Usuario>(u));
-        } else if (u > minHeap.verTope().valor) {
+            minHeap.insertar(u);
+        } else if (u > minHeap.tope()) {
             minHeap.extraerMaximo();
-            minHeap.insertar(Inverso<Usuario>(u));
+            minHeap.insertar(u);
         }
     }
 
-    // extraerMaximo() del heap invertido da el minimo real primero;
-    // agregarInicio() en cada paso deja el resultado en orden descendente
+    // extraerMaximo() en un min-heap saca primero al menor: se agrega al
+    // inicio de la lista para que quede ordenado de mayor a menor (el orden
+    // esperado de un "top").
     while (!minHeap.estaVacia()) {
-        topUsuarios.agregarInicio(minHeap.extraerMaximo().valor);
+        topUsuarios.agregarInicio(minHeap.extraerMaximo());
     }
 
     return topUsuarios;
@@ -126,8 +109,16 @@ Lista<int> RedSocial::amigosEnComun(int id1, int id2) {
     const Lista<int>& amigos1 = u1->getAmigos();
     const Lista<int>& amigos2 = u2->getAmigos();
 
+    // volcar amigos1 a una tabla hash: O(n), evita el .contiene() O(m) de
+    // Lista dentro del bucle (que dejaba la funcion en O(n*m))
+    TablaHash<int, bool> presentes(amigos1.obtenerTamano() * 2 + 7);
     for (int idAmigo : amigos1) {
-        if (amigos2.contiene(idAmigo)) {
+        presentes.insertar(idAmigo, true);
+    }
+
+    // recorrer amigos2 una sola vez, sin bucle anidado: O(m)
+    for (int idAmigo : amigos2) {
+        if (presentes.buscar(idAmigo) != nullptr) {
             enComun.agregarFinal(idAmigo);
         }
     }
@@ -135,6 +126,13 @@ Lista<int> RedSocial::amigosEnComun(int id1, int id2) {
     return enComun;
 }
 
+// E5#10: el enunciado (§4) pide "calcular sugerencias", no solo listarlas
+// en el orden arbitrario en que aparecen al recorrer amigos-de-amigos.
+// Ahora se cuenta, por candidato, cuantos amigos en comun tiene con el
+// usuario usando una TablaHash<int,int>, y se ordena a los candidatos por
+// ese conteo (mayor primero) con una ColaPrioridad.
+// @complejidad O(A * B) tiempo para contar (A = mis amigos, B = amigos por
+// amigo) + O(c log c) para ordenar los c candidatos unicos encontrados.
 Lista<int> RedSocial::obtenerSugerenciasAmistad(int idUsuario) {
     Lista<int> sugerencias;
 
@@ -145,58 +143,120 @@ Lista<int> RedSocial::obtenerSugerenciasAmistad(int idUsuario) {
 
     const Lista<int>& misAmigos = u->getAmigos();
 
-    // ir por cada amigo y luego por sus amigos
+    // marcar mis amigos actuales para descartarlos como candidatos: O(1)
+    // por busqueda en vez del .contiene() O(n) de Lista
+    TablaHash<int, bool> yaSoyAmigo(misAmigos.obtenerTamano() * 2 + 7);
+    for (int idAmigo : misAmigos) {
+        yaSoyAmigo.insertar(idAmigo, true);
+    }
+
+    // conteo de amigos en comun por candidato, y el orden en que aparecio
+    // cada candidato por primera vez (para recorrerlos sin duplicados)
+    TablaHash<int, int> conteoComun;
+    Lista<int> candidatosUnicos;
+
     for (int idAmigo : misAmigos) {
         Usuario* amigo = usuariosPorId.buscar(idAmigo);
+        if (amigo == nullptr) continue;
 
-        if (amigo != nullptr) {
-            const Lista<int>& amigosDelAmigo = amigo->getAmigos();
+        for (int candidato : amigo->getAmigos()) {
+            if (candidato == idUsuario || yaSoyAmigo.buscar(candidato) != nullptr) {
+                continue;
+            }
 
-            // ir por cada amigo del amigo y validar si es una sugerencia
-            for (int candidato : amigosDelAmigo) {
-                // verificar qeu no sea
-                if (candidato != idUsuario &&
-                    !misAmigos.contiene(candidato) &&
-                    !sugerencias.contiene(candidato)) {
-                    sugerencias.agregarFinal(candidato);
-                }
+            int* conteoActual = conteoComun.buscar(candidato);
+            if (conteoActual != nullptr) {
+                (*conteoActual)++;
+            } else {
+                conteoComun.insertar(candidato, 1);
+                candidatosUnicos.agregarFinal(candidato);
             }
         }
+    }
+
+    // pareja (id, conteo) solo para poder ordenar candidatos con la
+    // ColaPrioridad generica, que necesita operator> / operator<
+    struct CandidatoConConteo {
+        int id;
+        int conteo;
+        CandidatoConConteo() {}
+        bool operator>(const CandidatoConConteo& o) const { return conteo > o.conteo; }
+        bool operator<(const CandidatoConConteo& o) const { return conteo < o.conteo; }
+    };
+
+    ColaPrioridad<CandidatoConConteo> ranking;
+    for (int candidato : candidatosUnicos) {
+        int* conteo = conteoComun.buscar(candidato);
+        CandidatoConConteo cc;
+        cc.id = candidato;
+        cc.conteo = (conteo != nullptr) ? *conteo : 0;
+        ranking.insertar(cc);
+    }
+
+    while (!ranking.estaVacia()) {
+        sugerencias.agregarFinal(ranking.extraerMaximo().id);
     }
 
     return sugerencias;
 }
 
+// E5#11: usa la lista de IDs de publicaciones que ya guarda el propio Usuario
+// (u->getPublicaciones(), poblada en crearPublicacion) en vez de recorrer
+// TODAS las publicaciones del sistema comparando pub.getUserId() como cadena.
+// Se vuelca esa lista propia a una TablaHash<int,bool> (O(k), k = publicaciones
+// del usuario) y se hace un unico recorrido sobre publicaciones comparando
+// enteros por hash, no cadenas.
+// @complejidad O(k + m): k = publicaciones del usuario, m = publicaciones totales
 Lista<Publicacion> RedSocial::obtenerPublicacionesDeUsuario(int idUsuario) {
     Lista<Publicacion> resultado;
-    for (auto& pub : publicaciones) {
-        if (atoi(pub.getUserId()) == idUsuario) {
+
+    Usuario* u = usuariosPorId.buscar(idUsuario);
+    if (u == nullptr) {
+        return resultado;
+    }
+
+    const Lista<int>& misPublicaciones = u->getPublicaciones();
+
+    TablaHash<int, bool> misIds(misPublicaciones.obtenerTamano() * 2 + 7);
+    for (int idPub : misPublicaciones) {
+        misIds.insertar(idPub, true);
+    }
+
+    for (Publicacion& pub : publicaciones) {
+        int idPub = atoi(pub.getPostId());
+        if (misIds.buscar(idPub) != nullptr) {
             resultado.agregarFinal(pub);
         }
     }
+
     return resultado;
 }
 
-Lista<Publicacion> RedSocial::obtenerPublicacionesConMasReacciones(int topK) {
+// E5#13 + E10: Publicacion::operator> ya compara por likes (publicacion.cpp:69).
+// Antes se armaba un heap con las m publicaciones completas para sacar solo
+// K (O(m) memoria extra, O(m log m) tiempo). Ahora, igual que en
+// obtenerTopUsuariosActivos, se usa un min-heap acotado a K: cada publicacion
+// solo entra si supera a la peor (la de menos likes) que ya esta adentro.
+// @complejidad O(m log k) tiempo, O(k) memoria extra (m = publicaciones totales, k = topK)
+Lista<Publicacion> RedSocial::obtenerPublicacionesTopReacciones(int topK) {
     Lista<Publicacion> topPublicaciones;
+    if (topK <= 0) return topPublicaciones;
 
-    int n = publicaciones.obtenerTamano();
-    if (topK <= 0 || n == 0) return topPublicaciones;
+    ColaPrioridad<Publicacion> minHeap(topK, /*minHeap=*/true);
 
-    int capInicial = (topK < n) ? topK : n;
-    ColaPrioridad<Inverso<Publicacion>> minHeap(capInicial);
-
-    for (auto& pub : publicaciones) {
+    for (Publicacion& pub : publicaciones) {
         if (minHeap.obtenerTamano() < topK) {
-            minHeap.insertar(Inverso<Publicacion>(pub));
-        } else if (pub > minHeap.verTope().valor) {
+            minHeap.insertar(pub);
+        } else if (pub > minHeap.tope()) {
             minHeap.extraerMaximo();
-            minHeap.insertar(Inverso<Publicacion>(pub));
+            minHeap.insertar(pub);
         }
     }
 
+    // extraerMaximo() en un min-heap saca primero al de menos likes: se
+    // agrega al inicio para dejar el orden esperado de mayor a menor.
     while (!minHeap.estaVacia()) {
-        topPublicaciones.agregarInicio(minHeap.extraerMaximo().valor);
+        topPublicaciones.agregarInicio(minHeap.extraerMaximo());
     }
 
     return topPublicaciones;
@@ -334,20 +394,8 @@ bool RedSocial::eliminarPublicacion(int idPub) {
     char pIdStr[40];
     snprintf(pIdStr, sizeof(pIdStr), "%d", idPub);
 
-    for (auto& pub : publicaciones) {
-        const char* actualId = pub.getPostId();
-
-        bool iguales = true;
-        int j = 0;
-        while (actualId[j] != '\0' || pIdStr[j] != '\0') {
-            if (actualId[j] != pIdStr[j]) {
-                iguales = false;
-                break;
-            }
-            j++;
-        }
-
-        if (iguales) {
+    for (Publicacion& pub : publicaciones) {
+        if (strcmp(pub.getPostId(), pIdStr) == 0) {
             publicaciones.eliminar(pub);
             totalPublicaciones--;
             return true;
@@ -382,7 +430,7 @@ bool RedSocial::darLike(int idPub) {
     char pIdStr[40];
     snprintf(pIdStr, sizeof(pIdStr), "%d", idPub);
 
-    for (auto& pub : publicaciones) {
+    for (Publicacion& pub : publicaciones) {
         if (strcmp(pub.getPostId(), pIdStr) == 0) {
             pub.agregarLike();
 

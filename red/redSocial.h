@@ -62,7 +62,7 @@ public:
     Lista<int> amigosEnComun(int id1, int id2);
     Lista<int> obtenerSugerenciasAmistad(int idUsuario);
     Lista<Publicacion> obtenerPublicacionesDeUsuario(int idUsuario);
-    Lista<Publicacion> obtenerPublicacionesConMasReacciones(int topK);
+    Lista<Publicacion> obtenerPublicacionesTopReacciones(int topK);
 
     bool darLike(int idPub);
 

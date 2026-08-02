@@ -56,6 +56,54 @@ private:
     }
 
 public:
+    // Recorre los valores cubeta por cubeta sin copiarlos a una Lista<V>
+    // aparte (a diferencia de obtenerTodosLosValores(), que es O(n) en
+    // memoria). Permite `for (V& v : tablaHash)` en O(capacidad + n) tiempo
+    // y O(1) memoria extra: util para un top-K acotado (min-heap de tamano
+    // K) sin materializar los n valores primero.
+    class Iterador {
+        Lista<Par>* tabla;
+        int capacidad;
+        int idxCubeta;
+        typename Lista<Par>::Iterador itActual;
+        typename Lista<Par>::Iterador itFin;
+
+        void avanzarHastaValido() {
+            while (idxCubeta < capacidad && !(itActual != itFin)) {
+                idxCubeta++;
+                if (idxCubeta < capacidad) {
+                    itActual = tabla[idxCubeta].begin();
+                    itFin = tabla[idxCubeta].end();
+                }
+            }
+        }
+
+    public:
+        Iterador(Lista<Par>* t, int cap, int idxInicio)
+            : tabla(t), capacidad(cap), idxCubeta(idxInicio),
+              itActual(tabla[idxInicio < cap ? idxInicio : cap - 1].begin()),
+              itFin(tabla[idxInicio < cap ? idxInicio : cap - 1].end()) {
+            if (idxCubeta < capacidad) avanzarHastaValido();
+        }
+
+        V& operator*() { return (*itActual).valor; }
+
+        Iterador& operator++() {
+            ++itActual;
+            avanzarHastaValido();
+            return *this;
+        }
+
+        bool operator!=(const Iterador& o) const {
+            if (idxCubeta == capacidad && o.idxCubeta == capacidad) return false;
+            if (idxCubeta != o.idxCubeta) return true;
+            return itActual != o.itActual;
+        }
+    };
+
+    Iterador begin() const { return Iterador(tabla, capacidad, 0); }
+    Iterador end() const { return Iterador(tabla, capacidad, capacidad); }
+
     /// @complejidad O(capacidad) — inicializa el arreglo de listas vacias
     explicit TablaHash(int cap = 10007) : capacidad(cap), tamano(0) {
         tabla = new Lista<Par>[capacidad];

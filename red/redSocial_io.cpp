@@ -181,6 +181,9 @@ MedicionTiempos RedSocial::medirOperaciones(int n, int enlacesPorUsuario, int us
     red.obtenerSugerenciasAmistad(0);
     m.msSugerencias = milisegundosDesde(t0);
 
+    // T6: obtenerTopUsuariosActivos usa un min-heap acotado a K=10
+    // (redSocial.cpp), O(n log k) en vez de copiar los n usuarios a una
+    // Lista y armar un heap de tamano n. Se puede medir sin limite de N.
     t0 = Reloj::now();
     red.obtenerTopUsuariosActivos(10);
     m.msTopK = milisegundosDesde(t0);
