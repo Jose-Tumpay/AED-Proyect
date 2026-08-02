@@ -58,6 +58,8 @@ public:
     Lista<int> amigosEnComun(int id1, int id2);
     Lista<int> obtenerSugerenciasAmistad(int idUsuario);
 
+    bool darLike(int idPub);
+
     int obtenerNumUsuarios() const { return totalUsuarios; }
     int obtenerNumPublicaciones() const { return totalPublicaciones; }
 

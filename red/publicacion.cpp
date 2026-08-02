@@ -62,6 +62,10 @@ void Publicacion::agregarComentario(const Comentario& c) {
     comments++;
 }
 
+void Publicacion::agregarLike() {
+    likes++;
+}
+
 bool Publicacion::operator>(const Publicacion& otra) const {
     return likes > otra.likes;
 }

@@ -29,6 +29,7 @@ public:
     const Lista<Comentario>& getComentarios() const;
 
     void agregarComentario(const Comentario& c);
+    void agregarLike();
 
     // Métodos const con nombres de parámetro idénticos a la implementación
     bool operator>(const Publicacion& otra) const;
