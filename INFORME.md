@@ -10,11 +10,20 @@ Estado: **borrador en progreso**. Los números de la sección 6 son reales (se g
 corriendo `./app --bench` sobre este repositorio); las capturas de pantalla de la sección 7
 todavía no se tomaron.
 
+> ⚠️ **Nota de Jose (J7), tras revisar el código actual:** la §6 se escribió _antes_ de que
+> se integraran J4 (rehash en `TablaHash`) y T1 (se quitó el patrón `obtener(i)` en bucle de
+> `obtenerTopUsuariosActivos` y del resto de sitios señalados en el plan). El §6.4 describe
+> ambos defectos como si siguieran presentes en el código — ya no lo están. Hay que volver a
+> correr `./app --bench` sobre el `main` actual y actualizar la tabla de §6.3 y el análisis de
+> §6.4 antes de la entrega, o el informe va a contradecir al propio código que evalúan en la
+> sustentación (riesgo directo para E9). No lo corrijo yo porque los números y el guion de esa
+> sección son de C4/C5 (Cristhian) — esto es solo la alerta.
+
 ---
 
 ## 1 · Introducción
 
-*(Cristhian — C5)*
+_(Cristhian — C5)_
 
 El proyecto implementa una red social mínima en C++17, sin ninguna estructura de datos de
 la STL (E1 del enunciado): toda lista, tabla hash, grafo, cola y cola de prioridad que usa
@@ -41,7 +50,7 @@ de escalabilidad obtenidos con el generador sintético, y las conclusiones del e
 
 ## 2 · Arquitectura
 
-*(Cristhian — C5)*
+_(Cristhian — C5)_
 
 El código está organizado en tres módulos (E3):
 
@@ -94,15 +103,95 @@ quedan para T7, ver §4):
 
 ## 3 · Descripción de las estructuras
 
-*(Jose — J7, pendiente)*
+_(Jose — J7)_
 
-> TODO Jose: describir el diseño interno de cada estructura de `estructuras/` (invariantes,
-> por qué doblemente enlazada en `Lista`, por qué encadenamiento en `TablaHash`, por qué
-> heap binario en `ColaPrioridad`, la función hash DJB2). Ver la tarea J7 en `PLAN-v2.pdf`.
+Todas las estructuras de `estructuras/` son plantillas (`template <typename T>` o `<K,V>`)
+para reutilizarse en distintos tipos sin duplicar código, y ninguna usa contenedores de la
+STL (E1): la memoria se gestiona a mano con `new`/`delete`.
+
+**`Lista<T>` — doblemente enlazada, con punteros a cabeza y cola.**
+Es la estructura base de la que dependen todas las demás (`TablaHash` la usa para
+encadenamiento, `Grafo` para las listas de adyacencia, `Cola`/`Pila` son listas enlazadas
+simples especializadas). Se eligió doblemente enlazada porque `eliminar(dato)` necesita
+reconectar el nodo anterior y siguiente sin tener que volver a recorrer la lista desde la
+cabeza; con un solo enlace, borrar un nodo intermedio requeriría guardar el nodo anterior
+durante el recorrido. El costo es el sobrecoste de memoria por nodo (documentado y medido en
+§7 del plan de trabajo: 24 bytes de nodo para guardar 4 bytes de `int`, seis veces el dato
+útil), que el equipo decidió aceptar porque no está en el camino crítico de E6/E10 — el
+cuello de botella medido fue el patrón `obtener(i)` en bucle (Defecto 2 del plan, corregido
+en T1), no el tamaño del nodo en sí.
+`Lista` expone un `Iterador` (`begin()`/`end()`) para permitir `for (T& x : lista)` en O(n)
+total; `obtener(indice)` existe para acceso puntual por posición pero es O(n) por llamada —
+usarlo dentro de un bucle `for (i=0..n)` es el error que causaba el Defecto 2.
+Constructor de copia y `operator=` sí están implementados (a diferencia de las otras cuatro
+estructuras, ver más abajo) porque `Lista` se retorna por valor en varias operaciones de
+`RedSocial` (`caminoAmistad`, `amigosEnComun`, `obtenerVecinos`, etc.) y necesita una copia
+profunda correcta para eso.
+
+**`TablaHash<K,V>` — encadenamiento con `Lista<Par>` por cubeta.**
+Cada cubeta es una `Lista` de pares clave-valor; colisionar no sobreescribe nada, solo
+alarga la lista de esa cubeta. Se usan dos funciones hash: módulo directo para claves
+enteras (los IDs de usuario/publicación son consecutivos, por lo que el módulo reparte bien
+sin necesidad de mezclar bits) y DJB2 (`hash = hash*33 + c`) para claves de texto, elegida
+por su buena distribución empírica sobre cadenas cortas y su simplicidad de implementar sin
+librerías externas. La capacidad inicial es un primo (10 007) para reducir patrones de
+colisión con claves que comparten factores comunes. Para que la carga no se acumule sin
+control, `insertar` dispara `rehashear()` cuando el factor de carga supera 0.75 (J4):
+duplica la capacidad (`capacidad*2+1`, se mantiene impar por la misma razón que el primo
+inicial) y reinserta todo. El costo de un rehash individual es O(n), pero como solo se
+dispara cuando `n` creció proporcional a la capacidad, el costo amortizado por inserción
+sigue siendo O(1) (mismo argumento que el crecimiento geométrico de un `std::vector`, aplicado
+aquí a mano). Constructor de copia y `operator=` están bloqueados con `= delete` (J5/N7):
+`tabla` es un puntero a un arreglo de `Lista`, y una copia por defecto duplicaría el puntero,
+no el arreglo — el destructor de ambas copias liberaría la misma memoria dos veces
+(double free). Como ninguna operación del proyecto necesita copiar una `TablaHash` completa
+(siempre se usa como miembro o variable local, nunca se pasa ni retorna por valor), bloquear
+la copia convierte un bug potencial en tiempo de ejecución en un error de compilación.
+
+**`Grafo` — no dirigido, sobre `TablaHash<int, Lista<int>>`.**
+Cada vértice es una clave de la tabla hash; su valor es la `Lista<int>` de sus vecinos. Esto
+da acceso a la lista de adyacencia de un vértice en O(1) promedio, en vez de buscarlo
+linealmente en un arreglo de vértices como haría una matriz o lista de adyacencia clásica
+sobre un arreglo. El costo es que `Usuario::amigos` y `Grafo::adyacencia` guardan
+información parcialmente redundante (la lista de amigos de un usuario existe en los dos
+lados) — una decisión deliberada, no un descuido: `Usuario::amigos` es el campo que exige el
+enunciado (E4), y `Grafo::adyacencia` es el índice que necesita el BFS para ser eficiente.
+La sincronización entre ambos ocurre siempre en la misma operación (`agregarAmistad`,
+`eliminarAmistad`, `eliminarUsuario`), nunca por separado, para que no puedan desincronizarse
+a mitad de una llamada. `caminoMasCorto` usa BFS clásico con una `Cola<int>` para el
+recorrido y dos `TablaHash` auxiliares (`visitado`, `padre`) en vez de arreglos, porque los
+IDs de usuario no son necesariamente un rango denso desde 0 — un arreglo indexado por ID
+desperdiciaría memoria o requeriría un mapeo adicional.
+
+**`ColaPrioridad<T>` — heap binario sobre un arreglo (`T*`), sin nodos ni punteros.**
+Se eligió arreglo en vez de una estructura enlazada de árbol porque un heap binario completo
+se indexa aritméticamente (hijos de `i` en `2i+1` y `2i+2`) sin necesidad de punteros
+padre/hijo, lo que evita el sobrecoste por nodo que sí tiene `Lista` y hace que
+`insertar`/`extraerMaximo` sean O(log n) con muy poca sobrecarga de memoria por elemento.
+Cuando el arreglo se llena, `redimensionar()` lo duplica (mismo patrón de crecimiento
+geométrico que el rehash de `TablaHash`, mismo argumento de costo amortizado O(1)). Se usa
+para los dos rankings del proyecto: usuarios más activos (por `Usuario::operator>`, que
+compara `contadorPublicaciones`) y publicaciones con más reacciones (por
+`Publicacion::operator>`, que compara `likes`) — reutilizando la misma estructura genérica
+para ambos casos en vez de escribir un heap especializado por tipo. Copia bloqueada con
+`= delete` por el mismo motivo que `TablaHash`: `heap` es un puntero crudo a un arreglo.
+
+**`Cola<T>` y `Pila<T>` — lista enlazada simple especializada, sin usar `Lista<T>` genérica.**
+Ambas son la estructura clásica de libro de texto (nodo con un solo puntero `siguiente`),
+implementadas por separado en vez de reutilizar `Lista<T>` porque sus invariantes son más
+estrictas y más baratas de mantener: `Cola` solo necesita insertar por un extremo y quitar
+por el otro (no requiere doble enlace para eso), y `Pila` solo apila/desapila por un extremo.
+Usar la `Lista` doblemente enlazada genérica para estos dos casos habría funcionado, pero
+hubiera cargado con el puntero `anterior` que ninguna de las dos operaciones necesita.
+`Cola` es la estructura auxiliar del BFS de `Grafo`; `Pila` no se usa todavía en el flujo
+principal del proyecto, pero se deja completa y documentada por si una futura funcionalidad
+(por ejemplo, deshacer/rehacer una acción) la necesita. Copia bloqueada en ambas por la misma
+razón que en `TablaHash`/`ColaPrioridad`: son punteros crudos a nodos, y una copia por
+defecto compartiría los mismos nodos entre dos instancias que luego los liberarían dos veces.
 
 ## 4 · Diagramas
 
-*(Tercero + Cristhian — T7)*
+_(Tercero + Cristhian — T7)_
 
 > TODO Tercero: diagrama de clases completo y diagrama del grafo generado (una visualización
 > del grafo sintético de §6, por ejemplo con las comunidades coloreadas). Ver la tarea T7 en
@@ -110,15 +199,60 @@ quedan para T7, ver §4):
 
 ## 5 · Complejidad computacional
 
-*(Jose — J7, pendiente)*
+_(Jose — J7)_
 
-> TODO Jose: complejidad de cada método público de `estructuras/` y de las operaciones
-> principales de `RedSocial` (ya hay anotaciones `@complejidad` sueltas en `main.cpp` y
-> `redSocial_io.cpp` para usar como base). Ver la tarea J7 en `PLAN-v2.pdf`.
+`n` = usuarios totales, `P` = publicaciones totales, `grado(u)` = cantidad de amigos de `u`,
+`A` = aristas del grafo de amistad, `V` = vértices. Las anotaciones `/// @complejidad` están
+además puestas en el código fuente, método por método, en `estructuras/*.h`.
+
+### 5.1 · Estructuras base
+
+| Estructura            | Operación                          | Complejidad          | Nota                                                              |
+| --------------------- | ---------------------------------- | -------------------- | ----------------------------------------------------------------- |
+| `Lista<T>`            | `agregarInicio`, `agregarFinal`    | O(1)                 | punteros a cabeza y cola                                          |
+|                       | `eliminar(dato)`, `contiene(dato)` | O(n)                 | búsqueda lineal                                                   |
+|                       | `obtener(indice)`                  | O(n)                 | recorre desde la cabeza; O(n²) si se llama en bucle               |
+|                       | copia (ctor / `operator=`)         | O(n)                 | única de las 5 estructuras que copia (se retorna por valor)       |
+| `TablaHash<K,V>`      | `insertar`, `buscar`, `eliminar`   | O(1) promedio        | O(long. de cubeta) peor caso; amortizado O(1) con el rehash       |
+|                       | `rehashear`                        | O(n)                 | se dispara al superar 75% de carga; amortizado O(1) por inserción |
+|                       | `obtenerTodosLosValores`           | O(capacidad + n)     | recorre todas las cubetas                                         |
+| `Grafo`               | `agregarVertice`                   | O(1) promedio        | `TablaHash::buscar` + `insertar`                                  |
+|                       | `agregarArista`, `eliminarArista`  | O(grado(u)+grado(v)) | `Lista::contiene`/`eliminar` en cada lado                         |
+|                       | `eliminarVertice`                  | O(grado(u))          | solo recorre los vecinos directos (J1)                            |
+|                       | `caminoMasCorto` (BFS)             | O(V + A)             | cada vértice se encola una vez, cada arista se examina una vez    |
+| `ColaPrioridad<T>`    | `insertar`, `extraerMaximo`        | O(log n)             | `flotar`/`hundir` acotados por la altura del heap                 |
+| `Cola<T>` / `Pila<T>` | todas sus operaciones              | O(1)                 | listas enlazadas simples, un extremo fijo                         |
+
+### 5.2 · Operaciones de `RedSocial` (composición de las anteriores)
+
+| Operación                                    | Complejidad                                          | Justificación                                                                                                                                                                                                     |
+| -------------------------------------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `registrarUsuario`                           | O(1) promedio amortizado                             | 1 `buscar` + 1 `insertar` en `TablaHash` + `agregarVertice`                                                                                                                                                       |
+| `agregarAmistad` / `eliminarAmistad`         | O(grado(u1)+grado(u2))                               | domina `Grafo::agregarArista`/`eliminarArista`                                                                                                                                                                    |
+| `crearPublicacion`                           | O(1) promedio amortizado                             | `agregarFinal` en `Lista` + `agregarPublicacion` en `Usuario`                                                                                                                                                     |
+| `buscarUsuarioPorId`                         | O(1) promedio                                        | `TablaHash::buscar` directo                                                                                                                                                                                       |
+| `caminoAmistad`                              | O(V + A)                                             | delega en `Grafo::caminoMasCorto` (BFS)                                                                                                                                                                           |
+| `eliminarUsuario`                            | O(grado(u))                                          | domina `Grafo::eliminarVertice` (J1)                                                                                                                                                                              |
+| `darLike`                                    | O(P)                                                 | recorre `publicaciones` buscando el `postId` (no está indexada por ID)                                                                                                                                            |
+| `obtenerTopUsuariosActivos(k)`               | O(n log n)                                           | tras el fix de T1: `n` inserciones al heap O(log n) cada una, luego `k` extracciones                                                                                                                              |
+| `obtenerPublicacionesConMasReacciones(k)`    | O(P log P)                                           | mismo patrón que el anterior, sobre publicaciones                                                                                                                                                                 |
+| `amigosEnComun`                              | O(grado(u1) · grado(u2))                             | por cada amigo de `u1`, `Lista::contiene` sobre los de `u2` es O(grado(u2)); **T4 en el plan de trabajo propone bajar esto a O(grado(u1)+grado(u2)) volcando un lado a una `TablaHash`, todavía no implementado** |
+| `obtenerSugerenciasAmistad`                  | O(Σ grado(amigo) · (grado(u)+tamaño de sugerencias)) | recorrido amigos-de-amigos con `contiene` lineal en cada paso; **T5 propone rankearlo con `TablaHash`+`ColaPrioridad`, todavía no implementado**                                                                  |
+| `obtenerPublicacionesDeUsuario`              | O(P)                                                 | recorre todas las publicaciones filtrando por autor (no indexado)                                                                                                                                                 |
+| `cargarGrafoSNAP` / `cargarPublicacionesCSV` | O(A) / O(P)                                          | una pasada por el archivo, cada línea es O(1) amortizado                                                                                                                                                          |
+
+### 5.3 · Lectura de la tabla
+
+Dos filas quedan marcadas explícitamente como pendientes (`amigosEnComun`,
+`obtenerSugerenciasAmistad`): el análisis de complejidad describe el código tal como está
+hoy, no el objetivo final del plan de trabajo. Es intencional dejarlo así en vez de reportar
+la complejidad _deseada_: el enunciado pide "análisis de rendimiento" (E10) sobre el sistema
+real, y ocultar que dos operaciones todavía son más lentas de lo necesario contradice ese
+objetivo. Si T4/T5 se completan antes de la entrega, esta tabla debe actualizarse.
 
 ## 6 · Resultados experimentales
 
-*(Cristhian — C5)*
+_(Cristhian — C5)_
 
 ### 6.1 · Generador sintético y enlace preferencial
 
@@ -159,17 +293,17 @@ herramienta de medición que el enunciado permite).
 
 Corridos en esta máquina, `./app --bench`, semilla fija (reproducible):
 
-| N | carga (ms) | búsqueda (µs, promedio) | BFS (ms) | sugerencias (ms) | top-K (ms) |
-|---:|---:|---:|---:|---:|---:|
-| 2 000 | 6.44 | 0.03 | 2.20 | 0.93 | 12.14 |
-| 4 000 | 10.99 | 0.03 | 3.02 | 0.92 | 41.26 |
-| 8 000 | 20.79 | 0.03 | 8.84 | 0.98 | 147.58 |
-| 16 000 | 44.91 | 0.04 | 20.99 | 1.15 | 891.77 |
-| 32 000 | 102.11 | 0.04 | 64.15 | 1.25 | no medido¹ |
-| 64 000 | 268.71 | 0.04 | 187.69 | 1.25 | no medido¹ |
-| 100 000 | 492.38 | 0.05 | 260.52 | 1.35 | no medido¹ |
-| 200 000 | 1 499.31 | 0.04 | 730.67 | 1.36 | no medido¹ |
-| 500 000 | 8 913.31 | 0.05 | 7 319.58 | 1.56 | no medido¹ |
+|       N | carga (ms) | búsqueda (µs, promedio) | BFS (ms) | sugerencias (ms) | top-K (ms) |
+| ------: | ---------: | ----------------------: | -------: | ---------------: | ---------: |
+|   2 000 |       6.44 |                    0.03 |     2.20 |             0.93 |      12.14 |
+|   4 000 |      10.99 |                    0.03 |     3.02 |             0.92 |      41.26 |
+|   8 000 |      20.79 |                    0.03 |     8.84 |             0.98 |     147.58 |
+|  16 000 |      44.91 |                    0.04 |    20.99 |             1.15 |     891.77 |
+|  32 000 |     102.11 |                    0.04 |    64.15 |             1.25 | no medido¹ |
+|  64 000 |     268.71 |                    0.04 |   187.69 |             1.25 | no medido¹ |
+| 100 000 |     492.38 |                    0.05 |   260.52 |             1.35 | no medido¹ |
+| 200 000 |   1 499.31 |                    0.04 |   730.67 |             1.36 | no medido¹ |
+| 500 000 |   8 913.31 |                    0.05 | 7 319.58 |             1.56 | no medido¹ |
 
 ¹ Por encima de 20 000 usuarios el top-K no se mide: se colgaría la batería completa (ver
 §6.4, Defecto 2). El límite está en `LIMITE_MEDICION_TOPK` (`redSocial_io.cpp`).
@@ -202,7 +336,7 @@ que hace el plan de trabajo en su §7 sobre la misma causa (capacidad fija sin r
 
 ## 7 · Capturas
 
-*(Cristhian — C5, pendiente)*
+_(Cristhian — C5, pendiente)_
 
 > TODO: capturas de pantalla del menú (`./app`) ejecutando al menos: registrar usuario,
 > buscar usuario, camino de amistad, amigos en común, sugerencias y usuarios más activos —
@@ -211,7 +345,7 @@ que hace el plan de trabajo en su §7 sobre la misma causa (capacidad fija sin r
 
 ## 8 · Conclusiones
 
-*(Los tres — borrador de Cristhian, falta revisión conjunta)*
+_(Los tres — borrador de Cristhian, falta revisión conjunta)_
 
 El sistema cumple el núcleo del enunciado sin usar STL: las 13 funcionalidades tienen
 código funcional y 11 ya están cableadas al menú (las 2 restantes, mostrar publicaciones de
