@@ -272,7 +272,7 @@ static void opcionSugerenciasAmistad(RedSocial& red) {
     printf("\n");
 }
 
-/* @complejidad O(n log n): un heap con todos los usuarios */
+/* @complejidad O(n log k): min-heap acotado a k elementos (n = usuarios, k = topK) */
 static void opcionUsuariosMasActivos(RedSocial& red) {
     int topK;
     if (!leerEntero("  Cuantos usuarios mostrar: ", topK)) return;
@@ -290,7 +290,7 @@ static void opcionUsuariosMasActivos(RedSocial& red) {
     }
 }
 
-/* @complejidad O(m log m): m = publicaciones totales, heap completo para el top-K */
+/* @complejidad O(m log k): min-heap acotado a k elementos (m = publicaciones, k = topK) */
 static void opcionPublicacionesTopReacciones(RedSocial& red) {
     int topK;
     if (!leerEntero("  Cuantas publicaciones mostrar: ", topK)) return;

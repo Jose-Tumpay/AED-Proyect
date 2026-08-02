@@ -64,21 +64,33 @@ Lista<int> RedSocial::caminoAmistad(int idOrigen, int idDestino) {
     return grafoAmistades.caminoMasCorto(idOrigen, idDestino);
 }
 
+// E10: top-K acotado. Antes se copiaban los N usuarios a una Lista
+// (usuariosPorId.obtenerTodosLosValores(), O(n) memoria) y se armaba un heap
+// de tamano N para sacar solo K. Ahora se recorre la TablaHash directamente
+// (sin copia intermedia) y se mantiene un min-heap acotado a K elementos:
+// cada usuario nuevo solo entra si supera al peor (el minimo) que ya esta
+// adentro, que se descarta.
+// @complejidad O(n log k) tiempo, O(k) memoria (n = usuarios totales, k = topK)
 Lista<Usuario> RedSocial::obtenerTopUsuariosActivos(int topK) {
-    ColaPrioridad<Usuario> maxHeap;
+    Lista<Usuario> topUsuarios;
+    if (topK <= 0) return topUsuarios;
 
-    Lista<Usuario> todos = usuariosPorId.obtenerTodosLosValores();
+    ColaPrioridad<Usuario> minHeap(topK, /*minHeap=*/true);
 
-    for (Usuario& u : todos) {
-        maxHeap.insertar(u);
+    for (Usuario& u : usuariosPorId) {
+        if (minHeap.obtenerTamano() < topK) {
+            minHeap.insertar(u);
+        } else if (u > minHeap.tope()) {
+            minHeap.extraerMaximo();
+            minHeap.insertar(u);
+        }
     }
 
-    Lista<Usuario> topUsuarios;
-    int contador = 0;
-
-    while (!maxHeap.estaVacia() && contador < topK) {
-        topUsuarios.agregarFinal(maxHeap.extraerMaximo());
-        contador++;
+    // extraerMaximo() en un min-heap saca primero al menor: se agrega al
+    // inicio de la lista para que quede ordenado de mayor a menor (el orden
+    // esperado de un "top").
+    while (!minHeap.estaVacia()) {
+        topUsuarios.agregarInicio(minHeap.extraerMaximo());
     }
 
     return topUsuarios;
@@ -178,23 +190,31 @@ Lista<Publicacion> RedSocial::obtenerPublicacionesDeUsuario(int idUsuario) {
     return resultado;
 }
 
-// E5#13: Publicacion::operator> ya compara por likes (publicacion.cpp:69), asi
-// que solo hace falta cablear una ColaPrioridad<Publicacion> igual que hace
-// obtenerTopUsuariosActivos con Usuario.
-// @complejidad O(m log m): m = publicaciones totales, para construir el heap completo
+// E5#13 + E10: Publicacion::operator> ya compara por likes (publicacion.cpp:69).
+// Antes se armaba un heap con las m publicaciones completas para sacar solo
+// K (O(m) memoria extra, O(m log m) tiempo). Ahora, igual que en
+// obtenerTopUsuariosActivos, se usa un min-heap acotado a K: cada publicacion
+// solo entra si supera a la peor (la de menos likes) que ya esta adentro.
+// @complejidad O(m log k) tiempo, O(k) memoria extra (m = publicaciones totales, k = topK)
 Lista<Publicacion> RedSocial::obtenerPublicacionesTopReacciones(int topK) {
-    ColaPrioridad<Publicacion> maxHeap;
+    Lista<Publicacion> topPublicaciones;
+    if (topK <= 0) return topPublicaciones;
+
+    ColaPrioridad<Publicacion> minHeap(topK, /*minHeap=*/true);
 
     for (Publicacion& pub : publicaciones) {
-        maxHeap.insertar(pub);
+        if (minHeap.obtenerTamano() < topK) {
+            minHeap.insertar(pub);
+        } else if (pub > minHeap.tope()) {
+            minHeap.extraerMaximo();
+            minHeap.insertar(pub);
+        }
     }
 
-    Lista<Publicacion> topPublicaciones;
-    int contador = 0;
-
-    while (!maxHeap.estaVacia() && contador < topK) {
-        topPublicaciones.agregarFinal(maxHeap.extraerMaximo());
-        contador++;
+    // extraerMaximo() en un min-heap saca primero al de menos likes: se
+    // agrega al inicio para dejar el orden esperado de mayor a menor.
+    while (!minHeap.estaVacia()) {
+        topPublicaciones.agregarInicio(minHeap.extraerMaximo());
     }
 
     return topPublicaciones;
