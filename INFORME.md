@@ -23,7 +23,7 @@ todavía no se tomaron.
 
 ## 1 · Introducción
 
-_(Cristhian — C5)_
+(Cristhian — C5)
 
 El proyecto implementa una red social mínima en C++17, sin ninguna estructura de datos de
 la STL (E1 del enunciado): toda lista, tabla hash, grafo, cola y cola de prioridad que usa
@@ -50,11 +50,11 @@ de escalabilidad obtenidos con el generador sintético, y las conclusiones del e
 
 ## 2 · Arquitectura
 
-_(Cristhian — C5)_
+(Cristhian — C5)
 
 El código está organizado en tres módulos (E3):
 
-```
+```text
 estructuras/    Contenedores genéricos, sin conocimiento del dominio "red social"
   lista.h         Lista doblemente enlazada con iterador (base de casi todo lo demás)
   tablaHash.h     Tabla hash generica <K,V>, encadenamiento con Lista<Par>, hash DJB2 para
@@ -85,7 +85,7 @@ misma operación (`agregarAmistad`, `eliminarAmistad`, `eliminarUsuario`).
 Diagrama de módulos (versión mínima; el diagrama de clases completo y el del grafo generado
 quedan para T7, ver §4):
 
-```
+```text
         main.cpp
            |
            v
@@ -103,7 +103,7 @@ quedan para T7, ver §4):
 
 ## 3 · Descripción de las estructuras
 
-_(Jose — J7)_
+(Jose — J7)
 
 Todas las estructuras de `estructuras/` son plantillas (`template <typename T>` o `<K,V>`)
 para reutilizarse en distintos tipos sin duplicar código, y ninguna usa contenedores de la
@@ -191,7 +191,7 @@ defecto compartiría los mismos nodos entre dos instancias que luego los liberar
 
 ## 4 · Diagramas
 
-_(Tercero + Cristhian — T7)_
+(Tercero + Cristhian — T7)
 
 > TODO Tercero: diagrama de clases completo y diagrama del grafo generado (una visualización
 > del grafo sintético de §6, por ejemplo con las comunidades coloreadas). Ver la tarea T7 en
@@ -199,7 +199,7 @@ _(Tercero + Cristhian — T7)_
 
 ## 5 · Complejidad computacional
 
-_(Jose — J7)_
+(Jose — J7)
 
 `n` = usuarios totales, `P` = publicaciones totales, `grado(u)` = cantidad de amigos de `u`,
 `A` = aristas del grafo de amistad, `V` = vértices. Las anotaciones `/// @complejidad` están
@@ -252,7 +252,7 @@ objetivo. Si T4/T5 se completan antes de la entrega, esta tabla debe actualizars
 
 ## 6 · Resultados experimentales
 
-_(Cristhian — C5)_
+(Cristhian — C5)
 
 ### 6.1 · Generador sintético y enlace preferencial
 
@@ -336,7 +336,7 @@ que hace el plan de trabajo en su §7 sobre la misma causa (capacidad fija sin r
 
 ## 7 · Capturas
 
-_(Cristhian — C5, pendiente)_
+(Cristhian — C5, pendiente)
 
 > TODO: capturas de pantalla del menú (`./app`) ejecutando al menos: registrar usuario,
 > buscar usuario, camino de amistad, amigos en común, sugerencias y usuarios más activos —
@@ -345,7 +345,7 @@ _(Cristhian — C5, pendiente)_
 
 ## 8 · Conclusiones
 
-_(Los tres — borrador de Cristhian, falta revisión conjunta)_
+(Los tres — borrador de Cristhian, falta revisión conjunta)
 
 El sistema cumple el núcleo del enunciado sin usar STL: las 13 funcionalidades tienen
 código funcional y 11 ya están cableadas al menú (las 2 restantes, mostrar publicaciones de
@@ -361,4 +361,4 @@ la degradación en vez de ocultarla es, según el propio enunciado, parte del "a
 rendimiento" que se evalúa (E10).
 
 > TODO equipo: ampliar esta sección tras cerrar J4 (rehash) y T1 (quitar `obtener(i)` en
-> bucle) — repetir la batería de §6 y contrastar antes/después.
+> bucle) — repetir la batería de §6 y contrastar antes/después
